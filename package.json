@@ -1,0 +1,17 @@
+{
+  "name": "opc-hospital-assistant",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "AI 医院资源查询与便民就医助手 —— 第三届 OPC 接单吧实战能力大赛 · 软件与智能体赛道",
+  "scripts": {
+    "start": "node server.mjs",
+    "dev": "node server.mjs",
+    "test:search": "node scripts/test-search.mjs",
+    "test:lib": "node scripts/test-lib.mjs",
+    "test:answer": "node scripts/test-answer.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

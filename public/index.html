@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>AI 医院资源查询与便民就医助手</title>
+<style>
+  :root{
+    --b900:#1b3a5c; --b700:#2c5c8f; --b600:#3d7ebf; --b500:#5b9bd5;
+    --b100:#e8f2fb; --b50:#f4f9fd; --line:#dbe7f3; --card:#fff;
+    --ink:#1f3a56; --muted:#6b8299;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--b50);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif;
+    -webkit-text-size-adjust:100%}
+  .wrap{max-width:880px;margin:0 auto;padding:12px 12px 76px}
+
+  header{background:linear-gradient(135deg,#f0f7fe,#e2eefb 60%,#d8e9fa);
+    border:1px solid var(--line);border-radius:14px;padding:13px 14px 11px;margin-bottom:10px}
+  header h1{margin:0 0 5px;font-size:16.5px;line-height:1.32;color:var(--b900);font-weight:700}
+  header .sub{font-size:12px;color:var(--b700);line-height:1.55}
+  header .tag{display:inline-block;margin-top:7px;font-size:11px;background:#fff;
+    border:1px solid var(--line);color:var(--b700);border-radius:999px;padding:2px 9px;margin-right:5px}
+  .topnav{display:flex;justify-content:flex-end;margin-bottom:8px}
+  .topnav a{font-size:12px;color:var(--b600);text-decoration:none;background:#fff;
+    border:1px solid var(--line);border-radius:999px;padding:4px 11px}
+  .topnav a:hover{background:var(--b100)}
+
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;
+    margin-bottom:10px;box-shadow:0 1px 2px rgba(31,58,86,.03)}
+  .row-in{display:flex;gap:8px;align-items:flex-end}
+  textarea{flex:1;min-height:64px;resize:vertical;border:1px solid var(--line);border-radius:11px;
+    padding:10px;font-size:14.5px;font-family:inherit;outline:none;line-height:1.5;background:#fcfeff;color:var(--ink)}
+  textarea::placeholder{color:#9db3c7}
+  textarea:focus{border-color:var(--b500);box-shadow:0 0 0 3px rgba(91,155,213,.14)}
+  button{border:0;border-radius:11px;padding:10px 15px;font-size:14px;cursor:pointer;font-family:inherit}
+  .btn-main{background:var(--b600);color:#fff;font-weight:600;min-width:84px}
+  .btn-main:hover:not(:disabled){background:#356fa9}
+  .btn-main:disabled{opacity:.55;cursor:default}
+  /* 重置：小按钮，颜色只比周围深一点点 */
+  .btn-reset{background:transparent;border:1px solid #c9dcee;color:#4a6d8f;
+    font-size:11.5px;padding:4px 10px;border-radius:999px}
+  .btn-reset:hover{background:#e8f2fb;color:#2c5c8f}
+  .bar{display:flex;align-items:center;justify-content:space-between;margin-top:9px;gap:8px}
+  .chips{display:flex;flex-wrap:wrap;gap:6px}
+  .chip{font-size:11.5px;background:#f1f7fd;border:1px solid var(--line);color:var(--b700);
+    border-radius:999px;padding:5px 11px;cursor:pointer}
+  .chip:hover{background:var(--b100)}
+  .more{font-size:11.5px;color:var(--b600);padding:5px 3px;cursor:pointer}
+  .status{font-size:12px;color:var(--muted);margin-top:7px;min-height:16px}
+  .status.busy{color:#b45309}
+  .status.err{color:#b91c1c}
+
+  /* 结果卡（紧凑） */
+  .sum{font-size:12.5px;color:var(--muted);line-height:1.6;margin-bottom:7px}
+  .sum b{color:var(--b900)}
+  .stat{display:inline-block;font-size:11px;border-radius:5px;padding:1px 7px;margin-right:6px;
+    background:#eef6ff;color:#2c5c8f;border:1px solid #d6e6f7}
+  .res-row{display:flex;align-items:center;gap:8px;padding:7px 2px;border-top:1px dashed #e8f0f8;font-size:13.5px}
+  .res-row:first-of-type{border-top:0}
+  .res-row .idx{flex:0 0 auto;width:19px;height:19px;border-radius:50%;background:var(--b100);
+    color:var(--b700);font-size:11px;display:flex;align-items:center;justify-content:center}
+  .res-row .nm{flex:1 1 auto;color:var(--b900);line-height:1.45}
+  .badge{flex:0 0 auto;font-size:10.5px;border-radius:5px;padding:1px 7px}
+  .bA{background:#e7f6ef;color:#146c52;border:1px solid #a8ddc7}
+  .bB{background:#e8f2fb;color:#245b8c;border:1px solid #b6d6f0}
+  .bC{background:#fdf4e3;color:#8a5a12;border:1px solid #ecd3a3}
+
+  /* 折叠区 */
+  details{margin-top:9px;border-top:1px solid var(--line);padding-top:8px}
+  summary{cursor:pointer;font-size:12.5px;color:var(--b600);list-style:none;outline:none;
+    display:flex;align-items:center;gap:6px;user-select:none}
+  summary::-webkit-details-marker{display:none}
+  summary::before{content:'▸';font-size:11px;transition:transform .15s}
+  details[open] summary::before{transform:rotate(90deg)}
+  details[open] summary{margin-bottom:8px}
+  .full{font-size:12.8px;line-height:1.72;white-space:pre-wrap;color:#3a5573;
+    max-height:320px;overflow-y:auto;background:#fafcfe;border:1px solid #eaf2f9;
+    border-radius:9px;padding:9px 11px}
+  .full strong{color:var(--b900)}
+  .srcs{margin-top:8px}
+  .src{border:1px solid var(--line);border-radius:9px;padding:7px 9px;margin-bottom:6px;background:#fcfdff}
+  .src .t{font-size:12.5px;font-weight:600;line-height:1.45;color:var(--b900)}
+  .src .m{font-size:11px;color:#8fa6ba;margin-top:4px;line-height:1.6;word-break:break-all}
+  .src a{color:var(--b600);text-decoration:none}
+  .src a:hover{text-decoration:underline}
+
+  footer{position:fixed;left:0;right:0;bottom:0;background:rgba(244,249,253,.97);
+    border-top:1px solid var(--line);padding:7px 14px;font-size:11px;color:var(--muted);
+    text-align:center;backdrop-filter:blur(6px)}
+  .empty{color:var(--muted);font-size:13px;line-height:1.75}
+  .empty b{color:var(--b700)}
+  @media (max-width:560px){
+    .wrap{padding:10px 10px 72px}
+    header{padding:12px 12px 10px}
+    header h1{font-size:15.5px}
+    .row-in{flex-direction:column;align-items:stretch}
+    .btn-main{width:100%}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topnav"><a href="/mini.html">📱 微信小程序模拟版 →</a></div>
+
+  <header>
+    <h1>AI 医院资源查询与便民就医助手</h1>
+    <div class="sub">查医院资源、科室、医生公开信息与便民就医事项。<b>主动联网检索，每条结论附来源与查询时间。</b></div>
+    <div>
+      <span class="tag">演示范围：北京</span>
+      <span class="tag">不做诊断/治疗/用药建议</span>
+      <span class="tag">急症请拨 120</span>
+    </div>
+  </header>
+
+  <div class="card">
+    <div class="row-in">
+      <textarea id="q" placeholder="例如：北京有哪些医院设有卒中中心？（回车+Ctrl 发送）"></textarea>
+      <button class="btn-main" id="send">查询</button>
+    </div>
+    <div class="bar">
+      <div class="chips" id="chips"></div>
+      <button class="btn-reset" id="reset" title="开启一个全新会话（与旧会话相互隔离）">重置会话</button>
+    </div>
+    <div class="status" id="status"></div>
+  </div>
+
+  <div class="card" id="outCard" style="display:none">
+    <div id="result"></div>
+  </div>
+
+  <div class="card" id="hintCard">
+    <div class="empty">
+      <b>能做什么：</b>按地区/医院/科室/资源/医生条件<b>实时联网检索</b>，按统一框架输出，逐条附<b>来源、来源更新时间与本次查询时间</b>。<br>
+      <b>不做什么：</b>不做诊断/治疗/用药建议；不承诺号源；不提供鉴定估价。<br>
+      <b>标注含义：</b><b>A级·已核实</b>（政府/主管部门/院校）｜<b>B级·官网</b>（医院或机构）｜<b>C级·待核实</b>（仅线索）。<b>未查到 ≠ 没有。</b>
+    </div>
+  </div>
+</div>
+
+<footer>本作品为比赛演示；病例演示范围：北京。公开信息随时可能变化，请以医院最新公布或官方渠道确认的信息为准。</footer>
+
+<script>
+const $ = (id) => document.getElementById(id);
+
+const EX = [
+  '北京有哪些医院设有卒中中心',
+  '北京有抗蛇毒血清的医院',
+  '北京清华长庚医院神经内科主任医师出诊安排',
+  '第二家的地址和官方预约入口呢',
+  '北京大学首钢医院地址和官方预约入口',
+  '我胸痛该怎么办',
+  '高血压吃什么药好',
+  '有卒中中心的医院',
+];
+let shown = 4;
+function renderChips() {
+  const box = $('chips'); box.innerHTML = '';
+  EX.slice(0, shown).forEach((t) => {
+    const b = document.createElement('span');
+    b.className = 'chip'; b.textContent = t;
+    b.onclick = () => { $('q').value = t; send(); };
+    box.appendChild(b);
+  });
+  if (shown < EX.length) {
+    const m = document.createElement('span');
+    m.className = 'more'; m.textContent = '更多 ▾';
+    m.onclick = () => { shown = EX.length; renderChips(); };
+    box.appendChild(m);
+  }
+}
+renderChips();
+
+let sessionId = localStorage.getItem('opc_session') || ('web-' + Math.random().toString(36).slice(2, 10));
+localStorage.setItem('opc_session', sessionId);
+
+const TIER_SHORT = { A: 'A级·已核实', B: 'B级·官网', C: 'C级·待核实', D: 'D级·待核实' };
+const TIER_CLASS = { A: 'bA', B: 'bB', C: 'bC', D: 'bC' };
+const ST_TEXT = {
+  ok: '✅ 含权威来源', partial: '⚠️ 仅非权威来源', need_clarify: '❓ 需补充条件',
+  no_result: '⚠️ 未查到（≠没有）', refused_medical: '🚫 诊疗类已拒答', emergency: '🚨 紧急提示',
+  refused_out_of_scope: '🚫 越界已拒答', empty: '请输入内容', too_long: '输入过长',
+  search_failed: '⚠️ 检索异常', error: '⚠️ 系统异常',
+};
+
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function md(s) { return esc(s).replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>'); }
+function setStatus(t, cls) { $('status').textContent = t || ''; $('status').className = 'status' + (cls ? ' ' + cls : ''); }
+
+function renderSources(list) {
+  return (list || []).map((s) => {
+    const tier = s.tier || 'C';
+    const upd = s.sourceUpdatedAt ? ('来源更新时间：' + String(s.sourceUpdatedAt).slice(0, 10)) : '来源未标注更新时间';
+    return '<div class="src">' +
+      '<div class="t"><span class="badge ' + (TIER_CLASS[tier] || 'bC') + '">' + esc(TIER_SHORT[tier] || tier) + '</span>' + esc(s.title) + '</div>' +
+      '<div class="m">来源：' + esc(s.site || '') + ' ｜ <a href="' + esc(s.url) + '" target="_blank" rel="noopener noreferrer">打开原文</a> ｜ ' + esc(upd) +
+      ' ｜ 查询时间：' + esc(String(s.queriedAt || '').slice(0, 16)) + ' ｜ 通道：' + esc((s.channels || []).join('+')) + '</div>' +
+      '</div>';
+  }).join('');
+}
+
+/** 分层折叠：默认"摘要 + 紧凑结果行"，完整依据与来源收进折叠区 */
+function renderCompact(data) {
+  const st = data.status || '';
+  const srcs = data.sources || [];
+  const hos = data.hospitals || [];
+  const aCount = srcs.filter((s) => s.tier === 'A').length;
+
+  let html = '<div class="sum"><span class="stat">' + esc(ST_TEXT[st] || st || '—') + '</span>';
+  html += '来源 <b>' + srcs.length + '</b> 条（A级 ' + aCount + '）';
+  if (data.query) html += ' ｜ 检索关键词 <b>' + esc(data.query) + '</b>';
+  if (data.contextCity) html += ' ｜ 会话城市 <b>' + esc(data.contextCity) + '</b>';
+  html += '</div>';
+
+  if (hos.length) {
+    html += hos.slice(0, 6).map((h, i) =>
+      '<div class="res-row"><span class="idx">' + (i + 1) + '</span>' +
+      '<span class="nm">' + esc(h.name) + '</span>' +
+      '<span class="badge ' + (TIER_CLASS[h.tier] || 'bC') + '">' + esc(TIER_SHORT[h.tier] || h.tier) + '</span></div>'
+    ).join('');
+    if (hos.length > 6) html += '<div class="sum">…另有 ' + (hos.length - 6) + ' 家</div>';
+  }
+
+  html += '<details><summary>展开完整依据与 ' + srcs.length + ' 条来源</summary>';
+  html += '<div class="full">' + md(data.answer || '') + '</div>';
+  html += '<div class="srcs">' + renderSources(srcs) + '</div>';
+  html += '</details>';
+  return html;
+}
+
+async function send() {
+  const message = $('q').value.trim();
+  if (!message) { setStatus('请输入要查询的内容', 'err'); return; }
+  $('send').disabled = true;
+  setStatus('检索中…（正在调用联网搜索并核验来源）', 'busy');
+  try {
+    const r = await fetch('/api/chat', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message, sessionId })
+    });
+    const data = await r.json();
+    if (data.sessionId) { sessionId = data.sessionId; localStorage.setItem('opc_session', sessionId); }
+    $('q').value = '';                                  // 发送后清空
+    $('hintCard').style.display = 'none';
+    $('outCard').style.display = '';
+    $('result').innerHTML = renderCompact(data);
+    setStatus('');
+  } catch (e) {
+    setStatus('请求失败：' + String(e && e.message ? e.message : e), 'err');
+  } finally {
+    $('send').disabled = false;
+    $('q').focus();
+  }
+}
+
+async function reset() {
+  try { await fetch('/api/reset', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId }) }); } catch (e) {}
+  sessionId = 'web-' + Math.random().toString(36).slice(2, 10);
+  localStorage.setItem('opc_session', sessionId);
+  $('outCard').style.display = 'none';
+  $('hintCard').style.display = '';
+  $('q').value = '';
+  setStatus('已开启新会话（与旧会话相互隔离）');
+}
+
+$('send').onclick = send;
+$('reset').onclick = reset;
+$('q').addEventListener('keydown', (e) => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') send(); });
+</script>
+</body>
+</html>

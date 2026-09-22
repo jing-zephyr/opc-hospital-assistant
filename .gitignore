@@ -1,0 +1,28 @@
+# 依赖
+node_modules/
+
+# 密钥：绝不提交
+.env
+.env.local
+.env.production
+.secrets/
+*.key
+*.pem
+
+# 保留示例
+!.env.example
+
+# 运行产物 / 日志
+*.log
+logs/
+test-output/
+screenshots/tmp/
+
+# 旧版存档（本地留存，不提交）
+_旧版存档/
+
+# 编辑器
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

@@ -1,0 +1,36 @@
+[build]
+  publish = "public"
+  functions = "netlify/functions"
+  command = "echo no-build-step"
+
+# 小程序/网页统一接口 → Serverless 函数
+[[redirects]]
+  from = "/api/chat"
+  to = "/.netlify/functions/chat"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api/reset"
+  to = "/.netlify/functions/reset"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api/health"
+  to = "/.netlify/functions/health"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api/sessions"
+  to = "/.netlify/functions/sessions"
+  status = 200
+  force = true
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "no-referrer"
+    X-Frame-Options = "SAMEORIGIN"
