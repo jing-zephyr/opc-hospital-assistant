@@ -66,6 +66,19 @@
   .bA{background:#e7f6ef;color:#146c52;border:1px solid #a8ddc7}
   .bB{background:#e8f2fb;color:#245b8c;border:1px solid #b6d6f0}
   .bC{background:#fdf4e3;color:#8a5a12;border:1px solid #ecd3a3}
+  /* 条件筛选 + 结果对比（进阶2） */
+  .filters{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:2px 0 8px}
+  .fchip{font-size:11.5px;border:1px solid var(--line);background:#fff;color:var(--b700);
+    border-radius:999px;padding:4px 11px;cursor:pointer}
+  .fchip.on{background:var(--b600);border-color:var(--b600);color:#fff}
+  .cmpbtn{font-size:11.5px;border:1px dashed #b6d6f0;background:#f7fbff;color:var(--b700);
+    border-radius:999px;padding:4px 11px;cursor:pointer}
+  .cmpbtn:hover{background:var(--b100)}
+  .cmpbtn.on{background:#e7f6ef;border-color:#a8ddc7;color:#146c52}
+  .cmptable{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:6px}
+  .cmptable th,.cmptable td{border:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
+  .cmptable th{background:#f4f9fd;color:var(--b700);font-weight:600}
+  .cmpwrap{margin-top:8px;padding:8px 9px;border:1px solid var(--line);border-radius:9px;background:#fcfdff}
 
   /* 折叠区 */
   details{margin-top:9px;border-top:1px solid var(--line);padding-top:8px}
@@ -202,12 +215,18 @@ function renderSources(list) {
   }).join('');
 }
 
-/** 分层折叠：默认"摘要 + 紧凑结果行"，完整依据与来源收进折叠区 */
-function renderCompact(data) {
-  const st = data.status || '';
-  const srcs = data.sources || [];
-  const hos = data.hospitals || [];
-  const aCount = srcs.filter((s) => s.tier === 'A').length;
+/** 分层折叠 + 条件筛选 + 结果对比（进阶2） */
+let CURR = null
+let FILTER = 'all'          // all | A | AB
+const CMP = new Set()       // 选中的医院名（最多 3 家）
+
+function renderResult() {
+  const data = CURR
+  if (!data) return
+  const st = data.status || ''
+  const srcs = data.sources || []
+  const hos = data.hospitals || []
+  const aCount = srcs.filter((s) => s.tier === 'A').length
 
   let html = '<div class="sum"><span class="stat">' + esc(ST_TEXT[st] || st || '—') + '</span>';
   html += '来源 <b>' + srcs.length + '</b> 条（A级 ' + aCount + '）';
@@ -215,21 +234,64 @@ function renderCompact(data) {
   if (data.contextCity) html += ' ｜ 会话城市 <b>' + esc(data.contextCity) + '</b>';
   html += '</div>';
 
+  // 条件筛选
+  html += '<div class="filters"><span style="font-size:11.5px;color:#6b8299">来源筛选：</span>';
+  [['all', '全部'], ['A', '仅A级'], ['AB', 'A+B级']].forEach(function (f) {
+    html += '<span class="fchip' + (FILTER === f[0] ? ' on' : '') + '" data-filter="' + f[0] + '">' + f[1] + '</span>';
+  });
+  html += '</div>';
+
+  // 结果行 + 对比勾选
   if (hos.length) {
-    html += hos.slice(0, 6).map((h, i) =>
-      '<div class="res-row"><span class="idx">' + (i + 1) + '</span>' +
-      '<span class="nm">' + esc(h.name) + '</span>' +
-      '<span class="badge ' + (TIER_CLASS[h.tier] || 'bC') + '">' + esc(TIER_SHORT[h.tier] || h.tier) + '</span></div>'
-    ).join('');
-    if (hos.length > 6) html += '<div class="sum">…另有 ' + (hos.length - 6) + ' 家</div>';
+    html += hos.slice(0, 8).map(function (h, i) {
+      const on = CMP.has(h.name);
+      return '<div class="res-row"><span class="idx">' + (i + 1) + '</span>' +
+        '<span class="nm">' + esc(h.name) + '</span>' +
+        '<span class="badge ' + (TIER_CLASS[h.tier] || 'bC') + '">' + esc(TIER_SHORT[h.tier] || h.tier) + '</span>' +
+        '<span class="cmpbtn' + (on ? ' on' : '') + '" data-cmp="' + esc(h.name) + '">' + (on ? '✓ 已选' : '＋对比') + '</span>' +
+        '</div>';
+    }).join('');
+    if (hos.length > 8) html += '<div class="sum">…另有 ' + (hos.length - 8) + ' 家</div>';
   }
 
-  html += '<details><summary>展开完整依据与 ' + srcs.length + ' 条来源</summary>';
+  // 对比表（围绕 院区/公开资源与服务信息/来源可核验性）
+  if (CMP.size >= 2) {
+    const picked = hos.filter(function (h) { return CMP.has(h.name); });
+    html += '<div class="cmpwrap"><b style="font-size:12.5px;color:#2c5c8f">医院结果对比（' + picked.length + ' 家，最多 3 家）</b>';
+    html += '<table class="cmptable"><tr><th>医院</th><th>来源级别</th><th>来源</th><th>来源更新时间</th><th>原始链接</th></tr>';
+    html += picked.map(function (h) {
+      return '<tr><td>' + esc(h.name) + '</td><td>' + esc(TIER_SHORT[h.tier] || h.tier) + '</td><td>' + esc(h.site || '') + '</td><td>' +
+        (h.date ? esc(String(h.date).slice(0, 10)) : '来源未标注更新时间') + '</td><td><a href="' + esc(h.url || '#') + '" target="_blank" rel="noopener noreferrer">原文</a></td></tr>';
+    }).join('');
+    html += '</table>';
+    html += '<div style="font-size:11.5px;color:#8fa6ba;margin-top:6px">对比围绕 <b>院区 / 公开资源与服务信息 / 来源可核验性</b> 展开；<b>不以缺乏依据的医疗质量排名替代</b>。</div>';
+    html += '</div>';
+  }
+
+  // 折叠区（来源按筛选过滤）
+  const shown = srcs.filter(function (s) {
+    return FILTER === 'all' ? true : FILTER === 'A' ? s.tier === 'A' : (s.tier === 'A' || s.tier === 'B');
+  });
+  html += '<details><summary>展开完整依据与 ' + shown.length + ' 条来源' + (FILTER === 'all' ? '' : '（已按筛选）') + '</summary>';
   html += '<div class="full">' + md(data.answer || '') + '</div>';
-  html += '<div class="srcs">' + renderSources(srcs) + '</div>';
+  html += '<div class="srcs">' + renderSources(shown) + '</div>';
   html += '</details>';
-  return html;
+
+  $('result').innerHTML = html;
 }
+
+// 事件委托：筛选 / 对比
+$('result').addEventListener('click', function (e) {
+  const t = e.target;
+  const f = t.getAttribute && t.getAttribute('data-filter');
+  if (f) { FILTER = f; renderResult(); return; }
+  const c = t.getAttribute && t.getAttribute('data-cmp');
+  if (c) {
+    if (CMP.has(c)) CMP.delete(c);
+    else { if (CMP.size >= 3) { setStatus('最多同时对比 3 家医院', 'err'); return; } CMP.add(c); }
+    renderResult();
+  }
+});
 
 async function send() {
   const message = $('q').value.trim();
@@ -246,7 +308,9 @@ async function send() {
     $('q').value = '';                                  // 发送后清空
     $('hintCard').style.display = 'none';
     $('outCard').style.display = '';
-    $('result').innerHTML = renderCompact(data);
+    $('result').innerHTML = '';
+    CURR = data; CMP.clear(); FILTER = 'all';
+    renderResult();
     setStatus('');
   } catch (e) {
     setStatus('请求失败：' + String(e && e.message ? e.message : e), 'err');

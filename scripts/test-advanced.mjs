@@ -32,7 +32,9 @@ log('|---|---|')
 log('| 手机端适配（viewport + 媒体查询） | ' + (/viewport/.test(idx) && /max-width:560px|max-width:520px/.test(idx + mini) ? '✅' : '❌') + ' |')
 log('| 常用问题入口（快捷 chips） | ' + (/class="chips"/.test(idx) && /class="chips"/.test(mini) ? '✅' : '❌') + ' |')
 log('| 小程序形态模拟页 `/mini.html` | ' + (mini.length > 1000 ? '✅（' + mini.length + ' 字节）' : '❌') + ' |')
-log('| 条件筛选 / 结果比较表 | ⏳ 未实现（列入待办） |')
+log('| **条件筛选**（全部 / 仅A级 / A+B级） | ' + (/class="fchip/.test(idx) && /data-filter/.test(idx) ? '✅' : '❌') + ' |')
+log('| **医院结果对比**（最多 3 家，围绕院区/公开资源/来源可核验性） | ' + (/class="cmptable"/.test(idx) && /data-cmp/.test(idx) ? '✅' : '❌') + ' |')
+log('| 对比**不以医疗质量排名替代**（已写明） | ' + (/不以缺乏依据的医疗质量排名替代/.test(idx) ? '✅' : '❌') + ' |')
 log('')
 
 // ---- 进阶3：缓存 / 限流 / 历史 / 成本 ----
