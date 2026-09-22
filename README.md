@@ -152,7 +152,17 @@ Content-Type: application/json
 }
 ```
 
-**状态码**：`ok` / `partial` / `need_clarify` / `no_result` / `refused_medical` / `emergency` / `refused_out_of_scope` / `empty` / `too_long` / `search_failed` / `error`
+**状态码**：`ok` / `partial` / `need_clarify` / `no_result` / `refused_medical` / `emergency` / `refused_out_of_scope` / `empty` / `too_long` / `search_failed` / `rate_limited` / `error`
+
+**辅助接口**：
+
+| 方法 | 路径 | 用途 |
+|---|---|---|
+| POST | `/api/reset` | 重置会话（新会话与旧会话相互隔离） |
+| GET | `/api/history?sessionId=` | **查看本会话历史**（城市、识别出的医院、轮次、时间） |
+| GET | `/api/stats` | **运行指标**：检索调用次数、缓存命中、重试、失败、缓存大小、限流阈值（**不含任何密钥**） |
+| GET | `/api/health` | 健康检查 + 通道配置状态 |
+| GET | `/api/sessions` | 会话计数（仅计数与城市，不含对话内容） |
 
 **说明**：本项目未接入在运营的正式小程序（大赛不提供 AppID/账号/生产权限）。`/mini.html` 为**小程序形态的模拟调用方**，用于验证"消息输入 → 会话标识 → 答案与来源返回 → 异常状态"的完整链路。**模拟范围已在此明确标注。**
 
@@ -163,10 +173,23 @@ Content-Type: application/json
 | 存储 | 内容 | 更新策略 |
 |---|---|---|
 | 服务端内存 Map | 会话（城市、医院列表、轮次计数） | TTL 7 天自动清理；超 200 会话 FIFO 淘汰 |
+| **检索结果缓存** | 同一查询的检索结果 | **TTL 10 分钟**、上限 200 条；命中则不消耗检索额度（可用 `/api/stats` 的 `cacheHits` 验证） |
+| **限流窗口** | 每会话请求时间戳 | **每会话 20 次/分钟**；超限返回 `rate_limited` |
 | 浏览器 `localStorage` | 仅 `sessionId` | 重置会话时更换 |
 | **不落库** | 检索原文、页面正文、患者信息 | **不存储**，每次实时检索 |
 
 **「不落库原文」是刻意的**：符合"事实可聚合、原文不搬运、来源给深链"的合规要求，也避免了数据滞留风险。
+
+### 运行保障（进阶3）
+
+| 能力 | 实现 | 验证方式 |
+|---|---|---|
+| 请求限流 | 每会话 20 次/分钟 | `/api/stats` 的 `rateLimit`；连续请求会出现 `rate_limited` |
+| 缓存 | 检索结果 TTL 10 分钟 | `/api/stats` 的 `search.searches` / `search.cacheHits` |
+| 失败重试 | 单通道失败自动重试 1 次 | `/api/stats` 的 `search.retries` |
+| 调用成本记录 | 累计检索次数 / 缓存命中 / 重试 / 失败 | `/api/stats` |
+| 历史查看与清除 | `/api/history` 查看；`/api/reset` 清除 | 见《进阶项实测证据.md》 |
+| **降级方式** | 检索失败 → `search_failed` 并建议官网核实；无结果 → `no_result` 且**不断言"没有"**；单通道挂掉另一通道照常出结果 | 测试记录第 5/6 组、《进阶项实测证据.md》 |
 
 ---
 

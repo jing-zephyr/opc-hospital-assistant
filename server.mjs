@@ -4,7 +4,7 @@ import { createServer } from 'node:http'
 import { readFile } from 'node:fs/promises'
 import { join, extname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { handleChat, resetSession, listSessions } from './lib/chat.js'
+import { handleChat, resetSession, listSessions, getHistory, usageStats } from './lib/chat.js'
 
 const PORT = Number(process.env.PORT || 8787)
 const ROOT = resolve(fileURLToPath(new URL('./public/', import.meta.url)))
@@ -49,6 +49,12 @@ const server = createServer(async (req, res) => {
     }
     if (url.pathname === '/api/sessions' && req.method === 'GET') {
       return json(res, 200, { sessions: listSessions() })
+    }
+    if (url.pathname === '/api/history' && req.method === 'GET') {
+      return json(res, 200, getHistory(url.searchParams.get('sessionId') || ''))
+    }
+    if (url.pathname === '/api/stats' && req.method === 'GET') {
+      return json(res, 200, usageStats())
     }
     if (url.pathname === '/api/health') {
       return json(res, 200, { ok: true, at: new Date().toISOString() })
