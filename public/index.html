@@ -79,6 +79,24 @@
   .cmptable th,.cmptable td{border:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
   .cmptable th{background:#f4f9fd;color:var(--b700);font-weight:600}
   .cmpwrap{margin-top:8px;padding:8px 9px;border:1px solid var(--line);border-radius:9px;background:#fcfdff}
+  /* 角色视角（演示用 · 无需登录 · 不采集身份） */
+  .views{display:flex;gap:6px;align-items:center;flex-wrap:wrap;background:#fff;
+    border:1px solid var(--line);border-radius:12px;padding:8px 11px;margin-bottom:10px}
+  .views .lbl{font-size:11.5px;color:var(--muted);margin-right:2px}
+  .vtab{font-size:11.5px;border:1px solid var(--line);background:#fff;color:var(--b700);
+    border-radius:999px;padding:4px 12px;cursor:pointer}
+  .vtab:hover{background:var(--b100)}
+  .vtab.on{background:var(--b600);border-color:var(--b600);color:#fff}
+  .views .note{font-size:11px;color:#9db3c7;margin-left:auto}
+  .panel{margin-top:9px;border:1px solid var(--line);border-radius:10px;padding:9px 11px;background:#fcfdff}
+  .panel h4{margin:0 0 6px;font-size:12.5px;color:var(--b700);font-weight:600}
+  .panel .hint{font-size:11.5px;color:#8fa6ba;line-height:1.6}
+  .metrics{display:flex;flex-wrap:wrap;gap:8px;margin-top:2px}
+  .metric{flex:1 1 118px;border:1px solid var(--line);border-radius:8px;padding:7px 9px;background:#fff}
+  .metric .k{font-size:11px;color:#8fa6ba}
+  .metric .v{font-size:16px;color:var(--b900);font-weight:700;line-height:1.35}
+  .needcheck{font-size:12.5px;line-height:1.75}
+  .needcheck a{color:var(--b600);text-decoration:none;word-break:break-all}
 
   /* 折叠区 */
   details{margin-top:9px;border-top:1px solid var(--line);padding-top:8px}
@@ -126,6 +144,14 @@
       <span class="tag">急症请拨 120</span>
     </div>
   </header>
+
+  <div class="views" id="views">
+    <span class="lbl">角色视角：</span>
+    <span class="vtab" data-view="public">公众 / 患者</span>
+    <span class="vtab" data-view="staff">医护 / 导医</span>
+    <span class="vtab" data-view="admin">管理</span>
+    <span class="note">演示用 · 无需登录 · 不采集身份</span>
+  </div>
 
   <div class="card">
     <div class="row-in">
@@ -277,6 +303,9 @@ function renderResult() {
   html += '<div class="srcs">' + renderSources(shown) + '</div>';
   html += '</details>';
 
+  // 角色视角附加面板（三视角共用同一套查询结果）
+  html += viewPanels(srcs);
+
   $('result').innerHTML = html;
 }
 
@@ -291,6 +320,70 @@ $('result').addEventListener('click', function (e) {
     else { if (CMP.size >= 3) { setStatus('最多同时对比 3 家医院', 'err'); return; } CMP.add(c); }
     renderResult();
   }
+});
+
+// ---------- 角色视角（演示用 · 无需登录 · 不采集身份） ----------
+let VIEW = localStorage.getItem('opc_view') || 'public'
+let STATS = null
+
+function renderViews() {
+  const tabs = document.querySelectorAll('#views .vtab');
+  for (let i = 0; i < tabs.length; i++) {
+    tabs[i].className = 'vtab' + (tabs[i].getAttribute('data-view') === VIEW ? ' on' : '');
+  }
+}
+async function refreshStats() {
+  try { STATS = await (await fetch('/api/stats')).json(); } catch (e) { STATS = null; }
+}
+
+/** 三个视角共用同一套查询结果；差异只在"附加工具条"，不涉及账号与身份 */
+function viewPanels(srcs) {
+  if (VIEW === 'staff') {
+    const need = (srcs || []).filter(function (s) { return s.tier === 'C' || s.tier === 'D'; });
+    let h = '<div class="panel"><h4>🔎 导医工作台 · 待人工核实来源（' + need.length + ' 条）</h4>';
+    h += '<div class="hint">以下来源属聚合站 / 文库 / 导医平台，<b>只能作为线索</b>——需人工打开原文核对后再答复来访者。</div>';
+    h += '<div class="needcheck" style="margin-top:6px">';
+    h += need.length
+      ? need.map(function (s, i) {
+          return (i + 1) + '. ' + esc(s.title) + ' ｜ ' + esc(s.site || '') +
+            ' ｜ <a href="' + esc(s.url) + '" target="_blank" rel="noopener noreferrer">打开原文核对</a>' +
+            (s.sourceUpdatedAt ? '' : ' ｜ <b>来源未标注更新时间</b>');
+        }).join('<br>')
+      : '本次无需人工核实的下级来源。';
+    h += '</div></div>';
+    return h;
+  }
+  if (VIEW === 'admin') {
+    const s = STATS;
+    let h = '<div class="panel"><h4>📊 管理视角 · 运行指标 <span style="font-weight:400;font-size:11px;color:#8fa6ba">（/api/stats，不含任何密钥）</span></h4>';
+    if (!s || !s.search) { h += '<div class="hint">指标读取中或暂不可用…</div></div>'; return h; }
+    h += '<div class="metrics">';
+    h += '<div class="metric"><div class="k">真实检索次数</div><div class="v">' + s.search.searches + '</div></div>';
+    h += '<div class="metric"><div class="k">缓存命中</div><div class="v">' + s.search.cacheHits + '</div></div>';
+    h += '<div class="metric"><div class="k">失败重试</div><div class="v">' + s.search.retries + '</div></div>';
+    h += '<div class="metric"><div class="k">失败次数</div><div class="v">' + s.search.failures + '</div></div>';
+    h += '<div class="metric"><div class="k">活跃会话</div><div class="v">' + s.sessions + '</div></div>';
+    h += '<div class="metric"><div class="k">缓存条目</div><div class="v">' + (s.cache ? s.cache.size : '—') + '</div></div>';
+    h += '</div>';
+    if (s.rateLimit && s.cache) {
+      h += '<div class="hint" style="margin-top:7px">限流：每会话 ' + s.rateLimit.max + ' 次 / ' +
+        Math.round(s.rateLimit.windowMs / 1000) + ' 秒　｜　缓存 TTL ' + Math.round(s.cache.ttlMs / 60000) + ' 分钟　｜　来源：服务端实时统计</div>';
+    }
+    h += '</div>';
+    return h;
+  }
+  return '<div class="panel"><h4>🙋 公众 / 患者视角</h4><div class="hint">只显示「查询结果 + 来源 + 使用提示」，不加任何额外工具条——<b>查询对所有人开放，无需登录</b>。</div></div>';
+}
+
+renderViews();
+document.getElementById('views').addEventListener('click', async function (e) {
+  const v = e.target.getAttribute && e.target.getAttribute('data-view');
+  if (!v || v === VIEW) return;
+  VIEW = v;
+  localStorage.setItem('opc_view', VIEW);
+  renderViews();
+  if (VIEW === 'admin') await refreshStats();
+  if (CURR) renderResult();
 });
 
 async function send() {
