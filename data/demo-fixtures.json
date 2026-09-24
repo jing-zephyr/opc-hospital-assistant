@@ -1,0 +1,273 @@
+{
+  "notice": "本文件是「演示模式」的内置样例数据。当运行环境没有配置任何联网检索密钥（BOCHA_API_KEY / TAVILY_API_KEY）时，系统会改用这里的条目，并在页面顶部与每次回答中显著标注『演示模式 · 非实时结果』。它不是实时检索结果，也不能替代实时检索；配置密钥后系统会立即恢复真实联网检索。",
+  "updatedAt": "2026-09-24",
+  "discipline": "每一条 url 都必须真实可访问；snippet 一律以【演示样例数据】开头，写明「这是样例、非实时」，绝不冒充抓取到的原文摘录。",
+  "topics": ["卒中中心", "急诊科", "发热门诊", "胸痛中心", "抗蛇毒血清", "神经内科", "心血管内科", "骨科", "肿瘤科", "眼科", "耳鼻喉科", "医生与出诊", "地址与官方预约入口", "民营医院"],
+  "cities": ["北京", "杭州"],
+  "items": [
+    {
+      "id": "bj-stroke-1",
+      "city": "北京",
+      "keys": ["卒中中心", "卒中", "中风", "脑梗", "脑卒中"],
+      "title": "北京中医医院“卒中中心”揭牌（医院官网新闻）",
+      "url": "https://www.bjzhongyi.com/gzb_yyxw_detail/2718.html",
+      "site": "bjzhongyi.com",
+      "date": "",
+      "snippet": "【演示样例数据】首都医科大学附属北京中医医院官网新闻页，展示该院“卒中中心”揭牌信息。本条为内置样例，不是本次实时检索到的内容。",
+      "channels": ["bocha", "tavily"]
+    },
+    {
+      "id": "bj-stroke-2",
+      "city": "北京",
+      "keys": ["卒中中心", "卒中", "中风", "脑梗", "脑卒中", "神经内科"],
+      "title": "神经内科成为首批中国卒中中心联盟成员（北京市海淀医院官网新闻）",
+      "url": "https://www.hdhospital.com/Html/News/Articles/3252.html",
+      "site": "hdhospital.com",
+      "date": "",
+      "snippet": "【演示样例数据】北京市海淀医院（北京大学第三医院海淀院区）官网新闻页，展示其神经内科与中国卒中中心联盟相关信息。本条为内置样例，非实时检索结果。",
+      "channels": ["bocha"]
+    },
+    {
+      "id": "bj-stroke-3",
+      "city": "北京",
+      "keys": ["卒中中心", "卒中", "中风", "脑梗", "脑卒中"],
+      "title": "北京清华长庚医院获评国家“高级卒中中心”（清华大学官网）",
+      "url": "https://www.tsinghua.edu.cn/info/1182/47655.htm",
+      "site": "tsinghua.edu.cn",
+      "date": "",
+      "snippet": "【演示样例数据】清华大学官网发布的医院建设信息，展示北京清华长庚医院获评国家“高级卒中中心”。本条为内置样例，非实时检索结果。",
+      "channels": ["bocha", "tavily"]
+    },
+    {
+      "id": "bj-stroke-4",
+      "city": "北京",
+      "keys": ["卒中中心", "卒中", "中风", "脑梗", "脑卒中", "神经内科"],
+      "title": "卒中精准临床诊疗与研究中心简介（首都医科大学官网）",
+      "url": "https://www.ccmu.edu.cn/pub/ccmu/xkjs_6460/lczlyyjzx/e3ab707c80e443ee9aef2c27792d8c80.htm",
+      "site": "ccmu.edu.cn",
+      "date": "",
+      "snippet": "【演示样例数据】首都医科大学官网的卒中相关研究中心简介（依托北京天坛医院）。本条为内置样例，非实时检索结果。",
+      "channels": ["tavily"]
+    },
+    {
+      "id": "cn-stroke-platform",
+      "city": "",
+      "keys": ["卒中中心", "卒中", "中风", "脑梗", "脑卒中"],
+      "title": "全国卒中中心建设管理信息系统 · 卒中中心建设（主管部门平台）",
+      "url": "https://csp.ncmi.cn:8001/WebManage/StrokeCenter/StrokeCenterDetail?uid=00519&type=czzx",
+      "site": "csp.ncmi.cn",
+      "date": "",
+      "snippet": "【演示样例数据】国家卒中中心相关平台的卒中中心建设条目页，可用于演示“主管部门渠道”这一来源层级。本条为内置样例，非实时检索结果。",
+      "channels": ["bocha", "tavily"]
+    },
+    {
+      "id": "hz-stroke-1",
+      "city": "杭州",
+      "keys": ["卒中中心", "卒中", "中风", "脑梗", "脑卒中"],
+      "title": "奋勇争先 永不懈怠——记浙大二院迎接国家高级卒中中心复审（浙大二院官网新闻）",
+      "url": "https://www.z2hospital.com/contents/599/13943.html",
+      "site": "z2hospital.com",
+      "date": "2020-11-13",
+      "snippet": "【演示样例数据】浙江大学医学院附属第二医院官网新闻（2020-11-13，来源：医务部），记录国家卫生健康委脑防委专家对该院高级卒中中心的现场指导评价。本条为内置样例，非实时检索结果；且来源已超过 180 天，当前状态可能已变化。",
+      "channels": ["bocha", "tavily"]
+    },
+    {
+      "id": "hz-stroke-2",
+      "city": "杭州",
+      "keys": ["卒中中心", "卒中", "中风", "脑梗", "脑卒中", "院区", "地址"],
+      "title": "杭州市第一人民医院官网（院区与公告）",
+      "url": "https://www.hz-hospital.com/member/content/details/id/214147?cid=68",
+      "site": "hz-hospital.com",
+      "date": "",
+      "snippet": "【演示样例数据】杭州市第一人民医院官网院区公告页。演示样例未对该院卒中中心能力作结论，请以官网最新页面为准。本条为内置样例，非实时检索结果。",
+      "channels": ["bocha"]
+    },
+    {
+      "id": "hz-nz-1",
+      "city": "杭州",
+      "keys": ["神经内科", "卒中", "脑科", "头痛", "头晕"],
+      "title": "脑科中心（浙江大学医学院附属第二医院官网）",
+      "url": "https://www.z2hospital.com/channels/573.html",
+      "site": "z2hospital.com",
+      "date": "",
+      "snippet": "【演示样例数据】浙大二院官网“脑科中心”栏目页。本条为内置样例，非实时检索结果。",
+      "channels": ["bocha", "tavily"]
+    },
+    {
+      "id": "bj-emergency-1",
+      "city": "北京",
+      "keys": ["急诊科", "急诊", "急救", "发热门诊", "夜间门诊"],
+      "title": "急诊科 · 北京和睦家医院（民营，医院官网）",
+      "url": "https://beijing.ufh.com.cn/department_city/emergency",
+      "site": "beijing.ufh.com.cn",
+      "date": "",
+      "snippet": "【演示样例数据】北京和睦家医院官网急诊科页面。本条为内置样例，非实时检索结果；急诊就诊请先电话确认。",
+      "channels": ["bocha", "tavily"]
+    },
+    {
+      "id": "bj-emergency-2",
+      "city": "北京",
+      "keys": ["急诊科", "急诊", "急救"],
+      "title": "和睦家急诊医学服务（和睦家医疗集团官网）",
+      "url": "https://ufh.com.cn/medical-expertise/em-medicine",
+      "site": "ufh.com.cn",
+      "date": "",
+      "snippet": "【演示样例数据】和睦家医疗集团官网急诊医学服务介绍页（民营机构）。本条为内置样例，非实时检索结果。",
+      "channels": ["tavily"]
+    },
+    {
+      "id": "hz-emergency-1",
+      "city": "杭州",
+      "keys": ["急诊科", "急诊", "急救", "发热门诊"],
+      "title": "急诊中心（浙江大学医学院附属第二医院官网）",
+      "url": "https://www.z2hospital.com/channels/568.html",
+      "site": "z2hospital.com",
+      "date": "",
+      "snippet": "【演示样例数据】浙大二院官网“急诊中心”栏目页。本条为内置样例，非实时检索结果。",
+      "channels": ["bocha", "tavily"]
+    },
+    {
+      "id": "bj-authority-1",
+      "city": "北京",
+      "keys": ["发热门诊", "胸痛中心", "创伤中心", "急诊科", "抗蛇毒血清", "血清", "特殊资源", "耳鼻喉科", "耳鼻喉", "儿科", "妇产科", "皮肤科", "口腔科", "消化内科", "呼吸内科", "内分泌科", "泌尿外科", "康复科", "中医科", "精神科", "老年医学科", "感染科", "血液科", "肾内科", "风湿免疫科", "普外科", "神经外科", "心内科", "心血管内科"],
+      "title": "北京市卫生健康委员会（主管部门官网）",
+      "url": "https://wjw.beijing.gov.cn/",
+      "site": "wjw.beijing.gov.cn",
+      "date": "",
+      "snippet": "【演示样例数据】北京市卫生健康主管部门官网首页——用于演示“权威核实渠道”。演示模式未内置该主题的具体医院条目，请以官网公布的机构名单与医院官网为准。本条为内置样例，非实时检索结果。",
+      "channels": ["bocha", "tavily"]
+    },
+    {
+      "id": "cn-authority-1",
+      "city": "",
+      "keys": ["抗蛇毒血清", "血清", "解毒血清", "特殊资源", "胸痛中心", "发热门诊", "卒中中心", "创伤中心"],
+      "title": "国家卫生健康委员会（主管部门官网）",
+      "url": "https://www.nhc.gov.cn/",
+      "site": "nhc.gov.cn",
+      "date": "",
+      "snippet": "【演示样例数据】国家卫生健康主管部门官网首页——用于演示“权威核实渠道”。⚠️ 特殊资源（如抗蛇毒血清）的当前库存与可及性无法由公开页面确认，请直接致电医院急诊科或药房。本条为内置样例，非实时检索结果。",
+      "channels": ["bocha", "tavily"]
+    },
+    {
+      "id": "hz-register-1",
+      "city": "杭州",
+      "keys": ["挂号", "预约", "官方入口", "预约入口", "怎么挂", "地址", "院区"],
+      "title": "预约挂号（浙江大学医学院附属第二医院官网）",
+      "url": "https://www.z2hospital.com/channels/541.html",
+      "site": "z2hospital.com",
+      "date": "",
+      "snippet": "【演示样例数据】浙大二院官网“预约挂号”栏目页——官方挂号入口的演示样例。本条为内置样例，非实时检索结果；本系统不代办、不承诺号源。",
+      "channels": ["bocha", "tavily"]
+    },
+    {
+      "id": "hz-register-2",
+      "city": "杭州",
+      "keys": ["出诊", "排班", "门诊时间", "医生", "专家", "主任医师", "副主任医师", "挂号", "预约"],
+      "title": "门诊排班 / 专家门诊（浙江大学医学院附属第二医院官网）",
+      "url": "https://www.z2hospital.com/channels/656.html",
+      "site": "z2hospital.com",
+      "date": "",
+      "snippet": "【演示样例数据】浙大二院官网“门诊排班”栏目页。排班类信息易变，请以官网最新页面为准；本系统不推断当前出诊、不承诺号源。本条为内置样例，非实时检索结果。",
+      "channels": ["bocha", "tavily"]
+    },
+    {
+      "id": "hz-doctor-1",
+      "city": "杭州",
+      "keys": ["医生", "医师", "专家", "主任医师", "副主任医师", "擅长", "出诊", "挂号"],
+      "title": "专家名录（浙江大学医学院附属第二医院官网）",
+      "url": "https://www.z2hospital.com/doct.html",
+      "site": "z2hospital.com",
+      "date": "",
+      "snippet": "【演示样例数据】浙大二院官网“专家名录”栏目页——医生信息的官方入口演示样例。演示样例不含具体医生姓名/职称条目，请以官网名录原文为准。本条为内置样例，非实时检索结果。",
+      "channels": ["bocha"]
+    },
+    {
+      "id": "hz-traffic-1",
+      "city": "杭州",
+      "keys": ["地址", "院区", "怎么走", "交通", "在哪", "位置"],
+      "title": "医院交通 / 院区信息（浙江大学医学院附属第二医院官网）",
+      "url": "https://www.z2hospital.com/channels/5.html",
+      "site": "z2hospital.com",
+      "date": "",
+      "snippet": "【演示样例数据】浙大二院官网“医院交通”栏目页（该院为多院区医院：解放路院区、滨江院区、城东院区、博奥院区等）。多院区医院的地址与科室安排不得混用，请按院区分别核实。本条为内置样例，非实时检索结果。",
+      "channels": ["bocha", "tavily"]
+    },
+    {
+      "id": "hz-eye-1",
+      "city": "杭州",
+      "keys": ["眼科", "眼睛", "视力", "白内障"],
+      "title": "眼科中心（浙江大学医学院附属第二医院官网）",
+      "url": "https://www.z2hospital.com/channels/571.html",
+      "site": "z2hospital.com",
+      "date": "",
+      "snippet": "【演示样例数据】浙大二院官网“眼科中心”栏目页。本条为内置样例，非实时检索结果。",
+      "channels": ["bocha"]
+    },
+    {
+      "id": "hz-ortho-1",
+      "city": "杭州",
+      "keys": ["骨科", "骨折", "关节", "颈椎", "腰椎"],
+      "title": "骨科中心（浙江大学医学院附属第二医院官网）",
+      "url": "https://www.z2hospital.com/channels/569.html",
+      "site": "z2hospital.com",
+      "date": "",
+      "snippet": "【演示样例数据】浙大二院官网“骨科中心”栏目页。本条为内置样例，非实时检索结果。",
+      "channels": ["bocha"]
+    },
+    {
+      "id": "hz-cancer-1",
+      "city": "杭州",
+      "keys": ["肿瘤科", "肿瘤", "癌症", "化疗", "放疗"],
+      "title": "肿瘤中心（浙江大学医学院附属第二医院官网）",
+      "url": "https://www.z2hospital.com/channels/570.html",
+      "site": "z2hospital.com",
+      "date": "",
+      "snippet": "【演示样例数据】浙大二院官网“肿瘤中心”栏目页。本条为内置样例，非实时检索结果。",
+      "channels": ["bocha"]
+    },
+    {
+      "id": "hz-heart-1",
+      "city": "杭州",
+      "keys": ["心血管内科", "心内科", "心脏", "胸痛中心", "心口"],
+      "title": "心脏中心（浙江大学医学院附属第二医院官网）",
+      "url": "https://www.z2hospital.com/channels/572.html",
+      "site": "z2hospital.com",
+      "date": "",
+      "snippet": "【演示样例数据】浙大二院官网“心脏中心”栏目页。本条为内置样例，非实时检索结果。",
+      "channels": ["bocha"]
+    },
+    {
+      "id": "hz-dept-1",
+      "city": "杭州",
+      "keys": ["耳鼻喉科", "耳鼻喉", "耳鼻咽喉头颈外科", "科室", "耳", "鼻", "嗓子"],
+      "title": "科室介绍（浙江大学医学院附属第二医院官网）",
+      "url": "https://www.z2hospital.com/channels/554.html",
+      "site": "z2hospital.com",
+      "date": "",
+      "snippet": "【演示样例数据】浙大二院官网“科室介绍”栏目页——演示样例未单列耳鼻喉科条目，请以官网科室列表原文为准。本条为内置样例，非实时检索结果。",
+      "channels": ["bocha", "tavily"]
+    },
+    {
+      "id": "bj-register-1",
+      "city": "北京",
+      "keys": ["挂号", "预约", "官方入口", "预约入口", "怎么挂", "地址", "院区", "急诊科"],
+      "title": "北京市海淀医院（北京大学第三医院海淀院区）官网",
+      "url": "https://www.hdhospital.com/",
+      "site": "hdhospital.com",
+      "date": "",
+      "snippet": "【演示样例数据】北京市海淀医院官网首页——用于演示“医院官网 / 官方挂号入口”这一来源层级。本条为内置样例，非实时检索结果。",
+      "channels": ["bocha", "tavily"]
+    },
+    {
+      "id": "bj-doctor-1",
+      "city": "北京",
+      "keys": ["医生", "医师", "专家", "主任医师", "副主任医师", "擅长", "出诊", "排班"],
+      "title": "清华大学官网 · 北京清华长庚医院相关公开信息",
+      "url": "https://www.tsinghua.edu.cn/info/1182/47655.htm",
+      "site": "tsinghua.edu.cn",
+      "date": "",
+      "snippet": "【演示样例数据】清华大学官网发布的医院公开信息页，用于演示“院校/主办单位公开渠道”。演示样例不含具体医生姓名与职称条目，请以医院官网专家名录为准；本系统不作医生排名与疗效承诺。本条为内置样例，非实时检索结果。",
+      "channels": ["bocha", "tavily"]
+    }
+  ]
+}

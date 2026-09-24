@@ -5,6 +5,7 @@ import { readFile } from 'node:fs/promises'
 import { join, extname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { handleChat, resetSession, listSessions, getHistory, usageStats } from './lib/chat.js'
+import { searchMode, DEMO_NOTICE } from './lib/search.js'
 
 const PORT = Number(process.env.PORT || 8787)
 const ROOT = resolve(fileURLToPath(new URL('./public/', import.meta.url)))
@@ -57,7 +58,17 @@ const server = createServer(async (req, res) => {
       return json(res, 200, usageStats())
     }
     if (url.pathname === '/api/health') {
-      return json(res, 200, { ok: true, at: new Date().toISOString() })
+      const sm = searchMode()
+      return json(res, 200, {
+        ok: true,
+        at: new Date().toISOString(),
+        // 与 Netlify 版 /api/health 保持一致：只报"是否配置"，绝不回显密钥
+        mode: sm.mode,
+        demo: sm.mode === 'demo',
+        demoNotice: sm.mode === 'demo' ? DEMO_NOTICE : null,
+        demoReason: sm.mode === 'demo' ? sm.reason : null,
+        channels: sm.channels,
+      })
     }
     const rel = url.pathname === '/' ? '/index.html' : url.pathname
     const file = resolve(join(ROOT, rel))

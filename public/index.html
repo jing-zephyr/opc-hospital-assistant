@@ -133,6 +133,10 @@
 </head>
 <body>
 <div class="wrap">
+  <div id="demoBanner" style="display:none;background:#fff4e5;border:1px solid #e8a33d;color:#8a4b08;border-radius:12px;padding:10px 12px;margin-bottom:10px;font-size:12.5px;line-height:1.6">
+    <b>⚠️ 演示模式：未配置联网检索密钥，以下为内置样例数据，非实时结果</b>
+    <div id="demoBannerSub" style="font-size:11.5px;color:#a06a1e;margin-top:4px"></div>
+  </div>
   <div class="topnav"><a href="/mini.html">📱 微信小程序模拟版 →</a></div>
 
   <header>
@@ -398,6 +402,7 @@ async function send() {
     });
     const data = await r.json();
     if (data.sessionId) { sessionId = data.sessionId; localStorage.setItem('opc_session', sessionId); }
+    if (data.demo) showDemoBanner(data.demoNotice);
     $('q').value = '';                                  // 发送后清空
     $('hintCard').style.display = 'none';
     $('outCard').style.display = '';
@@ -426,6 +431,24 @@ async function reset() {
 $('send').onclick = send;
 $('reset').onclick = reset;
 $('q').addEventListener('keydown', (e) => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') send(); });
+
+/** 启动时探测检索模式：无密钥 → 顶部显著标注"演示模式（内置样例数据，非实时结果）" */
+function showDemoBanner(text) {
+  const el = document.getElementById('demoBanner');
+  if (!el) return;
+  el.style.display = '';
+  const sub = document.getElementById('demoBannerSub');
+  if (sub) {
+    sub.textContent = (text || '⚠️ 演示模式：未配置联网检索密钥（BOCHA_API_KEY / TAVILY_API_KEY），以下为内置样例数据，非实时结果')
+      + ' 配置密钥后重启服务即恢复真实联网检索（见 README《依赖与凭证清单》）；本模式下的回答均明确标注为样例数据，绝不冒充实时结果。';
+  }
+}
+(async function checkMode() {
+  try {
+    const h = await (await fetch('/api/health')).json();
+    if (h && (h.demo || h.mode === 'demo')) showDemoBanner(h.demoNotice);
+  } catch (e) { /* 探测失败不影响使用 */ }
+})();
 </script>
 </body>
 </html>
