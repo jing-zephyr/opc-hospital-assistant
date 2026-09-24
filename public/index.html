@@ -225,6 +225,10 @@ const ST_TEXT = {
   no_result: '⚠️ 未查到（≠没有）', refused_medical: '🚫 诊疗类已拒答', emergency: '🚨 紧急提示',
   refused_out_of_scope: '🚫 越界已拒答', empty: '请输入内容', too_long: '输入过长',
   search_failed: '⚠️ 检索异常', error: '⚠️ 系统异常',
+  out_of_scope_region: '🗺 该地区暂未纳入演示范围', need_dept: '❓ 需补充科室',
+  refused_sensitive: '🚫 敏感请求已拒答', refused_injection: '🚫 指令注入已忽略',
+  out_of_scope_general: '🚫 不属于服务范围', rate_limited: '⏳ 请求过于频繁',
+  demo_no_fixture: '📦 演示模式·无内置样例',
 };
 
 function esc(s) {
@@ -248,6 +252,7 @@ function renderSources(list) {
 /** 分层折叠 + 条件筛选 + 结果对比（进阶2） */
 let CURR = null
 let FILTER = 'all'          // all | A | AB
+let CURQ_TOPIC = ''         // 本轮"要查的资源/科室"（取自查询条件行，用于对比表的"公开资源与服务信息"列）
 const CMP = new Set()       // 选中的医院名（最多 3 家）
 
 function renderResult() {
@@ -257,12 +262,37 @@ function renderResult() {
   const srcs = data.sources || []
   const hos = data.hospitals || []
   const aCount = srcs.filter((s) => s.tier === 'A').length
+  // 从回答的"① 查询条件"里取"资源/科室"（纯展示用途；取不到就写"未指定"）
+  const mq = String(data.answer || '').match(/资源\/科室：([^｜\n]+)/)
+  CURQ_TOPIC = mq ? mq[1].trim() : ''
 
   let html = '<div class="sum"><span class="stat">' + esc(ST_TEXT[st] || st || '—') + '</span>';
   html += '来源 <b>' + srcs.length + '</b> 条（A级 ' + aCount + '）';
   if (data.query) html += ' ｜ 检索关键词 <b>' + esc(data.query) + '</b>';
   if (data.contextCity) html += ' ｜ 会话城市 <b>' + esc(data.contextCity) + '</b>';
   html += '</div>';
+
+  // 进阶1 证据条：交叉核验 / 过期提醒 / 冲突 / 院区消歧 —— 全部来自服务端真实计算结果
+  const evid = [];
+  evid.push('<span class="stat">🔎 交叉核验：' + (data.crossSiteCount || 0) + ' 个独立域名' + ((data.dualChannelCount || 0) ? '，其中 ' + data.dualChannelCount + ' 条经 2 个通道命中' : '') + '</span>');
+  if (data.staleCount) evid.push('<span class="stat" style="background:#fdf4e3;border-color:#ecd3a3;color:#8a5a12">⏳ 过期提醒：' + data.staleCount + ' 条来源距今 &gt; ' + (data.staleDays || 180) + ' 天</span>');
+  if (data.conflict) evid.push('<span class="stat" style="background:#fdeaea;border-color:#f0b6b6;color:#9b1c1c">⚠️ 来源冲突：' + (data.conflictPairs ? data.conflictPairs + ' 处表述不一致' : '存在不一致表述') + '</span>');
+  if (data.needCampusClarify) evid.push('<span class="stat" style="background:#e7f6ef;border-color:#a8ddc7;color:#146c52">❓ 多院区：请确认院区</span>');
+  html += '<div class="filters">' + evid.join('') + '</div>';
+
+  // 多院区消歧提示（正文里有完整院区清单；这里给一个可点的提示条）
+  if ((data.multiCampus || []).length) {
+    html += '<div class="cmpwrap" style="background:#f4fbf7;border-color:#bfe3d1">';
+    html += '<b style="font-size:12.5px;color:#146c52">❓ 多院区消歧（' + data.multiCampus.length + ' 家）—— 不同院区的地址/科室/排班不得混用</b>';
+    html += '<div style="font-size:11.5px;color:#3a5573;margin-top:5px;line-height:1.7">';
+    html += data.multiCampus.map(function (m) {
+      const cs = (m.campuses || []);
+      const rel = (m.related || []);
+      return '<div>· <b>' + esc(m.name) + '</b>：' + (cs.length ? '已核实院区 ' + cs.map(esc).join('、') : '<b>院区清单待核实</b>（不编造院区名）') +
+        (rel.length ? '<br><span style="color:#8a5a12">　关联机构（独立医疗机构，不算本院院区）：' + rel.map(esc).join('、') + '</span>' : '') + '</div>';
+    }).join('');
+    html += '</div><div style="font-size:11.5px;color:#8fa6ba;margin-top:5px">完整院区清单与核实依据见下方"展开完整依据"。</div></div>';
+  }
 
   // 条件筛选
   html += '<div class="filters"><span style="font-size:11.5px;color:#6b8299">来源筛选：</span>';
@@ -275,8 +305,12 @@ function renderResult() {
   if (hos.length) {
     html += hos.slice(0, 8).map(function (h, i) {
       const on = CMP.has(h.name);
+      const multi = (h.campusList || []).length > 1;
       return '<div class="res-row"><span class="idx">' + (i + 1) + '</span>' +
-        '<span class="nm">' + esc(h.name) + '</span>' +
+        '<span class="nm">' + esc(h.name) +
+        (multi ? ' <span class="badge" style="background:#e7f6ef;color:#146c52;border:1px solid #a8ddc7">多院区 ' + h.campusList.length + '</span>' : '') +
+        (h.category ? ' <span class="badge bB">' + esc(h.category) + '</span>' : '') +
+        '</span>' +
         '<span class="badge ' + (TIER_CLASS[h.tier] || 'bC') + '">' + esc(TIER_SHORT[h.tier] || h.tier) + '</span>' +
         '<span class="cmpbtn' + (on ? ' on' : '') + '" data-cmp="' + esc(h.name) + '">' + (on ? '✓ 已选' : '＋对比') + '</span>' +
         '</div>';
@@ -284,17 +318,35 @@ function renderResult() {
     if (hos.length > 8) html += '<div class="sum">…另有 ' + (hos.length - 8) + ' 家</div>';
   }
 
-  // 对比表（围绕 院区/公开资源与服务信息/来源可核验性）
+  // 对比表（**进阶2 要求：围绕"所在地区 / 院区 / 公开资源与服务信息"**；来源级别降为辅助列）
   if (CMP.size >= 2) {
     const picked = hos.filter(function (h) { return CMP.has(h.name); });
     html += '<div class="cmpwrap"><b style="font-size:12.5px;color:#2c5c8f">医院结果对比（' + picked.length + ' 家，最多 3 家）</b>';
-    html += '<table class="cmptable"><tr><th>医院</th><th>来源级别</th><th>来源</th><th>来源更新时间</th><th>原始链接</th></tr>';
+    html += '<table class="cmptable"><tr><th>医院</th><th>所在地区</th><th>院区</th><th>公开资源与服务信息</th><th>来源级别<br><span style="font-weight:400;font-size:10.5px;color:#8fa6ba">（辅助）</span></th><th>来源</th><th>来源更新时间</th><th>原始链接</th></tr>';
     html += picked.map(function (h) {
-      return '<tr><td>' + esc(h.name) + '</td><td>' + esc(TIER_SHORT[h.tier] || h.tier) + '</td><td>' + esc(h.site || '') + '</td><td>' +
+      const region = h.region || '未标明';
+      let campus;
+      if (h.campusList && h.campusList.length > 1) {
+        campus = '<b>多院区</b>（' + h.campusList.length + ' 个）：' + esc(h.campusList.join('、')) +
+          (h.campusMatched ? '<br>本次来源指向：<b>' + esc(h.campusMatched) + '</b>' : '<br>本次来源未明确院区');
+      } else if (h.campusList && h.campusList.length === 1) {
+        campus = esc(h.campusList[0]) + '<br><span style="color:#8fa6ba">（已核实：单院区）</span>';
+      } else if (h.campusConfidence === 'multi') {
+        campus = '<span style="color:#8a5a12">多院区医院，<b>清单待核实</b>（不编造）</span>';
+      } else {
+        campus = '<span style="color:#8fa6ba">来源未明确院区（待核实）</span>';
+      }
+      const resource = esc(CURQ_TOPIC || '未指定') + '<br><span style="color:#8fa6ba">依据：《' + esc(String(h.title || '').slice(0, 34)) + '》</span>';
+      return '<tr><td><b>' + esc(h.name) + '</b>' + (h.category ? '<br><span style="color:#8fa6ba">' + esc(h.category) + '</span>' : '') + '</td>' +
+        '<td>' + esc(region) + '</td>' +
+        '<td>' + campus + '</td>' +
+        '<td>' + resource + '</td>' +
+        '<td>' + esc(TIER_SHORT[h.tier] || h.tier) + '</td>' +
+        '<td>' + esc(h.site || '') + '</td><td>' +
         (h.date ? esc(String(h.date).slice(0, 10)) : '来源未标注更新时间') + '</td><td><a href="' + esc(h.url || '#') + '" target="_blank" rel="noopener noreferrer">原文</a></td></tr>';
     }).join('');
     html += '</table>';
-    html += '<div style="font-size:11.5px;color:#8fa6ba;margin-top:6px">对比围绕 <b>院区 / 公开资源与服务信息 / 来源可核验性</b> 展开；<b>不以缺乏依据的医疗质量排名替代</b>。</div>';
+    html += '<div style="font-size:11.5px;color:#8fa6ba;margin-top:6px">对比围绕 <b>所在地区 / 院区 / 公开资源与服务信息</b> 展开；<b>来源级别仅为辅助信息</b>（A级·已核实 ｜ B级·官网 ｜ C级·待核实）。<b>不以缺乏依据的医疗质量排名替代</b>。</div>';
     html += '</div>';
   }
 

@@ -158,9 +158,118 @@ const CASES = [
     checkText: ['第1步 status=need_clarify（反问城市）', '第2步 status=need_clarify（如实说明）',
       '写明"没有可承接的对象"', '**不凭空指定一家医院来凑答案**'],
   },
+  // ================= 进阶能力（进阶1 检索质量与更新能力 / 进阶2 结果比较） =================
+  {
+    g: '12', name: '⭐进阶1·同名医院及院区消歧（多院区 → 列出院区 + 要求澄清）',
+    turns: [{ msg: '北京协和医院有哪些院区' }],
+    expect: '识别该院为**多院区医院**→ 明确列出各院区、写明核实依据、**要求用户澄清要看哪个院区**；声明不同院区不得混用',
+    check: (r) => [r.status === 'ok', S.has(r, '多院区消歧'), S.has(r, '东单院区'), S.has(r, '西单院区'),
+      S.has(r, '请告诉我要看哪个院区') || S.has(r, '请确认你要看哪一个'), S.has(r, '不得混用'),
+      r.needCampusClarify === true, Array.isArray(r.multiCampus) && r.multiCampus.length > 0],
+    checkText: ['status=ok', '输出含「多院区消歧」块', '列出「东单院区」', '列出「西单院区」',
+      '**要求用户澄清院区**', '声明不同院区不得混用', 'JSON `needCampusClarify=true`', 'JSON `multiCampus` 非空'],
+  },
+  {
+    g: '12b', name: '⭐进阶1·院区消歧②（独立机构不并入母院）',
+    turns: [{ msg: '北京中医医院有哪些院区' }],
+    expect: '列出本院已核实院区；把延庆/顺义/平谷等**独立医疗机构**单列为"关联机构"，明说**不得与本院混用**，不把它们说成本院院区',
+    check: (r) => [r.status === 'ok', S.has(r, '本院（东城区宽街）'), S.has(r, '关联机构'),
+      S.has(r, '独立医疗机构'), S.has(r, '不得与本院混用')],
+    checkText: ['status=ok', '列出本院院区', '单列「关联机构」', '写明"独立医疗机构"', '写明"不得与本院混用"'],
+  },
+  {
+    g: '13', name: '⭐进阶1·冲突提示（两处表述不一致 → 两条都列出）',
+    turns: [{ msg: '北京 发热门诊 医院' }],
+    expect: '同一事实被多条来源说得不一致时 → **两条都列出**（说法 A / 说法 B），各自标来源、更新时间与**原文摘录**，并声明**不替你择一**',
+    check: (r) => [r.status === 'ok', S.has(r, '来源冲突提示'), S.has(r, '说法 A'), S.has(r, '说法 B'),
+      S.has(r, '两处表述不一致'), S.has(r, '原文摘录'), S.has(r, '不判定哪一条为准') || S.has(r, '不替你')],
+    checkText: ['status=ok', '出现「来源冲突提示」', '列出「说法 A」', '列出「说法 B」', '写明"两处表述不一致"',
+      '每条附**原文摘录**', '声明**不替你择一**（不判定哪条为准）'],
+  },
+  {
+    g: '14', name: '⭐进阶1·过期提醒（来源更新时间距今 > 180 天）',
+    turns: [{ msg: '北京 卒中中心' }],
+    expect: '逐条来源判定"是否超过 180 天"；超期的自动加「⚠️ 该来源较旧，当前状态可能已变化」；并写明"抓取时间 ≠ 来源更新时间、定时执行 ≠ 实时准确"',
+    check: (r) => [r.status === 'ok', S.has(r, '过期提醒'), S.has(r, '180 天'),
+      S.has(r, '抓取时间 ≠ 来源更新时间'), S.has(r, '定时执行 ≠ 实时准确'),
+      (r.sources || []).every((s) => typeof s.stale === 'boolean'),
+      (r.sources || []).filter((s) => s.stale).length === Number(r.staleCount || 0)],
+    checkText: ['status=ok', '出现「过期提醒」', '写明阈值 180 天', '写明"抓取时间 ≠ 来源更新时间"',
+      '写明"定时执行 ≠ 实时准确"', '逐条来源带 `stale` 布尔字段', '超期条数与 `staleCount` 一致'],
+  },
+  {
+    g: '15', name: '⭐进阶1·交叉核验显式化（多来源 / 双通道命中写进回答）',
+    turns: [{ msg: '北京有哪些医院设有卒中中心' }],
+    expect: '显式写出"本次结论被 N 个独立域名命中"、双通道同页命中条数及其口径；并说明**不把"同一篇文章被转载"当两个来源**',
+    check: (r) => [r.status === 'ok', S.has(r, '交叉核验'), S.has(r, '个独立域名'),
+      S.has(r, '口径说明'), S.has(r, '不把"同一篇文章被转载"当作两个来源'),
+      Number(r.crossSiteCount) >= 2],
+    checkText: ['status=ok', '出现「交叉核验」小节', '显式给出"独立域名"数量', '含"口径说明"',
+      '声明不把转载当两个来源', 'JSON `crossSiteCount ≥ 2`'],
+  },
+  {
+    g: '16', name: '⭐进阶2·医院结果比较表新维度（地区 / 院区 / 公开资源与服务信息）',
+    turns: [{ msg: '北京有哪些医院设有卒中中心' }],
+    expect: '页面（`GET /`）对比表含**所在地区 / 院区 / 公开资源与服务信息**三列；"来源级别"降为辅助列；仍保留"不以缺乏依据的医疗质量排名替代"；最多对比 3 家',
+    check: (r) => [r.status === 'ok',
+      Boolean(globalThis.__IDX) && /<th>所在地区<\/th>/.test(globalThis.__IDX),
+      Boolean(globalThis.__IDX) && /<th>院区<\/th>/.test(globalThis.__IDX),
+      Boolean(globalThis.__IDX) && /<th>公开资源与服务信息<\/th>/.test(globalThis.__IDX),
+      Boolean(globalThis.__IDX) && /来源级别<br><span[^>]*>（辅助）/.test(globalThis.__IDX),
+      Boolean(globalThis.__IDX) && /不以缺乏依据的医疗质量排名替代/.test(globalThis.__IDX),
+      Boolean(globalThis.__IDX) && /CMP\.size >= 3/.test(globalThis.__IDX)],
+    checkText: ['status=ok', '对比表含「所在地区」列', '对比表含「院区」列', '对比表含「公开资源与服务信息」列',
+      '「来源级别」标为（辅助）', '保留"不以医疗质量排名替代"', '仍最多对比 3 家'],
+  },
+  {
+    g: '17', name: '⭐进阶1·院区消歧不误伤（区县下级机构不并入母院）',
+    turns: [{ msg: '北京中医医院顺义医院 康复科' }],
+    expect: '"北京中医医院顺义医院""北京市平谷区中医院"是**独立医疗机构**，不得被并进母院的院区表',
+    check: (r) => [r.status === 'ok' || r.status === 'partial',
+      !/顺义医院[\s\S]{0,200}本院（东城区宽街）/.test(String(r.answer || '')),
+      Array.isArray(r.hospitals),
+      (r.hospitals || []).every((h) => !(String(h.name).includes('顺义') && h.campusConfidence === 'official'))],
+    checkText: ['status=ok/partial', '不把顺义医院套上母院院区表', '`hospitals` 为数组',
+      '顺义医院条目不带母院的已核实院区表'],
+  },
+  // ================= 地区识别与演示范围（甲方口径：主打北京 + 辐射 8 城） =================
+  {
+    g: '18', name: '⭐范围外地区（保定）：识别地名 + 如实说明演示范围（不假装支持）',
+    turns: [{ msg: '保定有哪些医院设有卒中中心' }],
+    expect: '**识别到"保定"这个地名**，返回 `out_of_scope_region`，并明确说明演示范围（北京 + 8 个辐射城市），给出可直接照抄的替代问法；**不得**回一句干巴巴的"请告诉我要查的城市"',
+    check: (r) => [r.status === 'out_of_scope_region', S.has(r, '保定'), S.has(r, '北京'),
+      ['天津', '石家庄', '上海', '杭州', '南京', '苏州', '广州', '深圳'].every((c) => S.has(r, c)),
+      !S.has(r, '请告诉我要查的**城市或地区**')],
+    checkText: ['status=out_of_scope_region', '回答点出地名「保定」', '回答含主要演示范围「北京」',
+      '回答含完整 8 个辐射城市清单', '**不是**原句"请告诉我要查的城市"'],
+  },
+  {
+    g: '19', name: '⭐演示范围城市（天津）：正常检索并给出真实来源',
+    turns: [{ msg: '天津有哪些医院设有卒中中心' }],
+    expect: '支持范围内的城市必须真检索：`ok`/`partial`、来源 ≥1、命中 ≥1 家医院、检索词含城市名',
+    check: (r) => [(r.status === 'ok' || r.status === 'partial'), /天津/.test(r.query || ''),
+      (r.sources || []).length >= 3, (r.hospitals || []).length >= 1],
+    checkText: ['status=ok/partial', '检索词含「天津」', '来源≥3 条', '命中≥1 家医院'],
+  },
+  {
+    g: '20', name: '⭐未命中民营时主动给"可复制的追问句式"（官方基础需求2 相关）',
+    turns: [{ msg: '北京有哪些医院设有卒中中心' }],
+    expect: '命中 ≥3 家但**没有民营**时：如实说明"未命中民营"（不硬凑），并在「④使用提示」**主动给一句可直接复制的追问句式**',
+    check: (r) => [(r.hospitals || []).length >= 3,
+      !(r.hospitals || []).some((h) => h.category === '民营'),
+      S.has(r, '想看民营医院'), S.has(r, '包括民营医院'), S.has(r, '不会为了满足') || S.has(r, '不会为了')],
+    checkText: ['本次命中 ≥3 家医院', '本次确实没有民营条目（前提成立）', '给出「想看民营医院？」提示',
+      '给出含"包括民营医院"的可复制问法', '同时声明"不硬凑"'],
+  },
 ]
 
 const MODE = searchMode()
+
+// 进阶2 对比表的维度检查需要页面 HTML（本地读文件即可，不依赖服务是否在跑）
+try {
+  const { readFileSync } = await import('node:fs')
+  globalThis.__IDX = readFileSync(new URL('../public/index.html', import.meta.url), 'utf8')
+} catch { globalThis.__IDX = '' }
 
 function now() {
   const d = new Date(); const p = (n) => String(n).padStart(2, '0')

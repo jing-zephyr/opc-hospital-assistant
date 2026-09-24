@@ -9,7 +9,14 @@
     "dev": "node server.mjs",
     "test:search": "node scripts/test-search.mjs",
     "test:lib": "node scripts/test-lib.mjs",
-    "test:answer": "node scripts/test-answer.mjs"
+    "test:answer": "node scripts/test-answer.mjs",
+    "test:fixes": "node scripts/test-p0fixes.mjs",
+    "test:record": "node scripts/gen-test-record.mjs",
+    "test:advanced": "node scripts/test-advanced.mjs",
+    "test:mobile": "node scripts/gen-mobile-evidence.mjs",
+    "test:cities": "node scripts/test-cities.mjs",
+    "test:final": "node scripts/verify-final.mjs",
+    "test:all-docs": "node scripts/regenerate-all.mjs"
   },
   "engines": {
     "node": ">=18"

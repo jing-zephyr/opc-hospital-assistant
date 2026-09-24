@@ -26,3 +26,10 @@ _旧版存档/
 .idea/
 .DS_Store
 Thumbs.db
+
+# 临时/调试脚本（勿提交）
+scripts/_*
+_diag*.mjs
+_probe*.mjs
+_final*.mjs
+_v.mjs

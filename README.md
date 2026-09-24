@@ -17,6 +17,21 @@
 
 ---
 
+## 一之二、演示范围（以页面/接口实际行为为准）
+
+| 项 | 内容 |
+|---|---|
+| **主要演示范围** | **北京** |
+| **可辐射城市（实测 `ok`）** | **天津 / 石家庄 / 上海 / 杭州 / 南京 / 苏州 / 广州 / 深圳**（共 8 个） |
+| 覆盖证据 | `已验证城市清单.md`（`npm run test:cities` 生成，16/16 项通过） |
+| 范围外的地名（如"保定""唐山"） | **能识别出来**，但返回 `out_of_scope_region` —— **明确说明演示范围 + 给出可直接照抄的替代问法**，既不假装支持，也不回一句干巴巴的"请告诉我要查的城市" |
+| 只说了省（如"河北省"） | 按省检索，并给出该省候选城市（**不替你猜城市**） |
+
+> **为什么这样设计**：赛题红线之一是"不得编造 / 未查到要说清限制"。在一个**没有把握的城市**上给结果，很容易把"没检索到"说成"当地没有"。
+> 因此本项目把范围讲清楚、把范围外的地名也**认出来并如实说明**，而不是硬查一遍糊弄过去。
+
+---
+
 ## 二、30 秒启动（本地一键运行，评审 15 分钟内可完成）
 
 **前置**：安装 Node.js ≥ 18（https://nodejs.org/）。
@@ -32,16 +47,42 @@ node server.mjs          # 或 npm start
 
 | 入口 | 地址 | 说明 |
 |---|---|---|
-| 网页版 | `http://127.0.0.1:8787` | 四区布局（条件/结果/依据/提示） |
+| **公网演示入口（已上线）** | **https://opc-hospital-assistant.netlify.app** | 打开即用，无需安装；`/api/health` 返回 `mode=live`、`channels.bocha/tavily` 均为 `true` |
+| 网页版（本地） | `http://127.0.0.1:8787` | 四区布局（条件/结果/依据/提示） |
 | **小程序模拟版** | `http://127.0.0.1:8787/mini.html` | 手机壳 + 聊天式交互（模拟小程序形态） |
-| 健康检查 | `http://127.0.0.1:8787/api/health` | 返回通道配置状态（**不回显密钥**） |
+| 健康检查 | `http://127.0.0.1:8787/api/health` | 返回检索模式与通道配置状态（**只回布尔，不回显密钥**） |
+
+**`/api/health` 实际返回字段**（与代码一致，本地 `server.mjs` 与云端 Netlify Function 同一份语义）：
+
+```json
+{
+  "ok": true,
+  "at": "2026-09-24T08:19:40.892Z",
+  "mode": "live",
+  "demo": false,
+  "demoNotice": null,
+  "demoReason": null,
+  "channels": { "bocha": true, "tavily": true }
+}
+```
+
+| 字段 | 含义 |
+|---|---|
+| `ok` / `at` | 服务可用性 / 服务器当前时间（ISO） |
+| `mode` | `live`（真联网检索）或 `demo`（未配置密钥，改用内置样例） |
+| `demo` | 布尔，等价于 `mode === 'demo'` |
+| `demoNotice` | 演示模式下的**显著提示文案**（非演示模式为 `null`） |
+| `demoReason` | 演示模式原因：`no-search-keys` 或 `forced-by-OPC_SEARCH_MODE`（非演示模式为 `null`） |
+| `channels` | `{ bocha, tavily }` 两个通道**是否已配置密钥**（布尔；**不含密钥本身**） |
+
+> ⚠️ **`mode=demo` 时不是"坏了"**：这是**零密钥演示模式**——系统改读内置样例数据，并在页面顶部与每次回答里**显著标注"非实时结果"**，绝不冒充实时检索。配置 `BOCHA_API_KEY` / `TAVILY_API_KEY` 后重启即恢复真实联网。
 
 **检索密钥**：本项目需要**联网检索通道的密钥**（博查 / Tavily）。本地演示按以下顺序读取：
 1. 环境变量 `BOCHA_API_KEY` / `TAVILY_API_KEY`；
-2. 库外文件 `C:\Users\T\.secrets\opc-search.env(.txt)`（**不在任何仓库内**）。
+2. 库外文件 `C:\Users\T\.secrets\opc-search.env(.txt)`（**不在任何仓库内**，可用 `OPC_SECRETS_FILE` 覆盖路径）。
 
-> 无密钥时程序仍可启动，但检索将返回空并在页面上如实说明"检索失败/未查到"。
-> 评审如需自备密钥，可设置上述两个环境变量后启动。
+> 无密钥时程序**仍可启动**：自动进入上述**演示模式**（`mode=demo`），页面顶部与回答里都会显著标注"内置样例数据、非实时结果"，不会静默假装检索成功。
+> 评审如需自备密钥，可设置上述两个环境变量后启动；也可直接用上面的**公网演示入口**（云端已配置密钥）。
 
 ---
 
@@ -58,6 +99,43 @@ node server.mjs          # 或 npm start
 | 大模型 | **核心链路不依赖** | 备用 `DEEPSEEK_API_KEY` 已预留，用于后续润色 |
 
 **为什么核心链路不用大模型生成答案**：试题明确"不得通过硬编码或预设冒充动态查询""公开信息不足时如实说明"。**答案由检索结果确定性组装**，每个结论都能点回来源——这比让模型"自由发挥"更符合验收重点。
+
+---
+
+## 三之二、依赖与凭证清单（评审核对用）
+
+> 试题原文（基础需求7·项目文件）：「注明**模型、联网搜索工具及版本或服务名称**，提供必要的环境配置示例，**不提交真实密钥**」；
+> 试题原文（五）：「第三方检索或模型服务所需账号、额度和配置**由选手准备**，并在交付说明中列明**依赖及评审使用方式**」。
+
+| # | 依赖 | 版本 / 服务名称 | 用途 | 是否必需 | 申请入口 | 在交付包中的配置位置 |
+|---|---|---|---|---|---|---|
+| 1 | **Node.js** | **≥ 18**（实测 24.19.0 通过） | 本地一键运行 `server.mjs`（原生 `http`/`fetch`，**零 npm 依赖**） | ✅ 必需 | https://nodejs.org/ | 无需配置，安装即用；`启动.bat` 会检测版本 |
+| 2 | **博查 Web Search API**（Bocha AI Search） | `POST https://api.bochaai.com/v1/web-search`（服务名：博查 AI 开放平台 · Web Search） | 检索通道 1：**返回 `datePublished`**，用来做"来源更新时间"与过期提醒 | ✅ 必需（两通道至少配 1 个） | https://open.bochaai.com/ （注册后在控制台创建 API Key，形如 `sk-…`） | 环境变量 `BOCHA_API_KEY`；本地兜底文件 `C:\Users\T\.secrets\opc-search.env`（**库外，永不提交**）；云端：Netlify → Site settings → Environment variables |
+| 3 | **Tavily Search API** | `POST https://api.tavily.com/search`（服务名：Tavily Search） | 检索通道 2：**权威官网命中强**，与博查互补（交叉核验的另一半） | ✅ 必需（两通道至少配 1 个） | https://app.tavily.com/ （注册后在 Dashboard 复制 API Key，形如 `tvly-…`） | 环境变量 `TAVILY_API_KEY`；其余同上 |
+| 4 | **DeepSeek API** | `DEEPSEEK_API_KEY`（服务名：DeepSeek 开放平台） | **可选**：核心链路**完全不用**；仅为后续"答案润色"预留 | ⭕ 可选 | https://platform.deepseek.com/ | 环境变量 `DEEPSEEK_API_KEY`（**不配也完全不影响任何验收项**） |
+| 5 | 前端 | 无依赖（原生 HTML/CSS/JS） | 页面 | ✅ | — | — |
+| 6 | 云托管 | **Netlify**（Functions + 静态托管） | 公网入口 https://opc-hospital-assistant.netlify.app | ✅ 已部署 | https://www.netlify.com/ | `netlify.toml`（publish=`public`，functions=`netlify/functions`）+ 上面两个环境变量 |
+
+**评审怎么用（三选一，都不需要你拥有密钥）**：
+1. **直接用公网入口** `https://opc-hospital-assistant.netlify.app` —— 云端已配置两个检索密钥，打开即真联网；
+2. **本地零密钥试用** —— `node server.mjs` 后自动进入**演示模式**（内置样例数据，页面显著标注"非实时结果"）；
+3. **本地真联网** —— 自备博查/Tavily 任一 Key，设为环境变量后 `node server.mjs` 即恢复真实检索。
+
+**环境变量示例**（`.env.example`，**只有键名没有值**）：
+
+```ini
+# 检索通道（至少配置 1 个；两个都配则自动做交叉核验）
+BOCHA_API_KEY=
+TAVILY_API_KEY=
+# 可选：核心链路不使用，仅预留
+DEEPSEEK_API_KEY=
+# 可选：强制检索模式 auto（默认）| live | demo
+OPC_SEARCH_MODE=auto
+# 可选：自定义库外密钥文件路径（迁移/自测用）
+# OPC_SECRETS_FILE=C:\path\to\opc-search.env
+```
+
+**密钥纪律**：真实密钥**不进前端代码、不进公开仓库、不进测试日志、不进截图**；`/api/health` 只回布尔；交付包中**不含任何真实密钥**。
 
 ---
 
@@ -96,6 +174,23 @@ node server.mjs          # 或 npm start
 3. **历史 ≠ 实时**——历史报道/采购公告**不得**表述为"当前可用/有库存"；
 4. **不同院区不混用**——地址、科室、排班必须绑定院区；
 5. 官网白名单**只增已核实的**，每条必须附证据 URL。
+
+---
+
+## 五之二、进阶1 · 检索质量与更新能力（四条硬机制，逐条对应试题原文）
+
+> 试题原文（进阶需求1）：「支持**多个权威来源交叉核验**、**同名医院及院区消歧**、**冲突提示**；针对排班、特殊资源等易变化信息设置**更新或过期提醒**。展示更新前后的变化与依据，**不能把定时执行等同于实时准确**。」
+
+| 机制 | 实现位置 | 输出里长什么样（真实样例已在《进阶项实测证据.md》逐条留证） |
+|---|---|---|
+| **① 多来源交叉核验（显式化）** | `lib/search.js` 双通道合并 + `lib/answer.js` 的「🔎 交叉核验」小节 | 显式写「本次结论由 **N 个独立域名**共同覆盖」；同一条被博查与 Tavily **同时命中**的打〔⭐双通道命中〕并写「本条经 2 个通道交叉命中」；**口径写死**：不把"同一篇文章被转载"当作两个来源，也不把"定时重复抓取"当"信息准确" |
+| **② 同名医院及院区消歧** | **`lib/campus.js`（医院 → 院区映射，每条附核实证据 URL）** + `buildCampusBlock()` | 检索到**多院区医院** → 输出「**【⚠️ 多院区消歧】**」块：列出**已核实院区**（或如实写"院区清单待核实，不编造院区名"）→ **要求用户澄清要看哪个院区**；**独立医疗机构**（如"北京中医医院延庆医院"="北京中医医院顺义医院"）单列为**关联机构**并写明"不得与本院混用"；**同名不同写法**（"北京协和医院" ↔ "中国医学科学院北京协和医院"）自动归并成一条卡片并列出全部写法 |
+| **③ 冲突提示（两条都列出）** | `lib/answer.js` 的 `detectConflict()`（**局部对齐**，克制不误报） | 只有当两条来源**点名同一家医院**、或**同时涉及本轮主题且对当前状态说法相反**时才报冲突；输出「**⚠️ 来源冲突提示（两条都列出，不替你择一）**」：说法 A / 说法 B 各附**标题 + 原文摘录 + 来源 + 链接 + 来源更新时间 + 检索通道**，并明写「**两处表述不一致**」「**本系统不判定哪一条为准**」；未对齐到同一对象时只给**弱信号提醒**，不虚构矛盾 |
+| **④ 过期提醒（> 180 天）** | `lib/search.js` 的 `STALE_DAYS = 180` / `isStale()`、`ageDays()` | 逐条来源判定：**来源更新时间距今 > 180 天** → 该条自动加「⚠️ 该来源较旧（距今 N 天 > 180 天），**当前状态可能已变化**」；`③ 信息依据` 汇总「**⏳ 过期提醒**：其中 M 条…」；并写死时效口径：**抓取时间 ≠ 来源更新时间；定时执行 ≠ 实时准确**。每条来源在 JSON 里也带 `stale` / `ageDays` 字段 |
+
+**为什么把"院区表"单独放一个文件**：院区是最容易编错的一类事实。`lib/campus.js` 用与官网白名单同一条纪律——**每一条都必须有核实证据 URL**，核实不了的写 `confidence:'multi'` 并**在输出里明说"院区清单待核实、本系统不编造院区名"**；带区/县限定的下级机构（"北京市平谷区中医院"）与独立院区机构（"北京中医医院延庆医院"）**一律不并入母院**。
+
+**关于"180 天"这个阈值的出处（不夸大）**：试题原文只要求"针对排班、特殊资源等**易变化**信息设置更新或**过期提醒**"，**没有给具体天数**。180 天是**本项目自定的判定阈值**（`lib/search.js` 的 `STALE_DAYS = 180`），理由：多数医院官网的科室/中心介绍类页面更新间隔在半年量级，超过半年仍标"当前状态"容易失真。它是**可解释、可复核的规则**，不是"官方口径"——交付文档里也按这个口径写明。
 
 ---
 
@@ -152,7 +247,7 @@ Content-Type: application/json
 }
 ```
 
-**状态码**：`ok` / `partial` / `need_clarify` / `no_result` / `refused_medical` / `emergency` / `refused_out_of_scope` / `empty` / `too_long` / `search_failed` / `rate_limited` / `error`
+**状态码**：`ok` / `partial` / `need_clarify` / `no_result` / `refused_medical` / `emergency` / `refused_out_of_scope` / `empty` / `too_long` / `search_failed` / `rate_limited` / `error` / `out_of_scope_region`（识别到地名但不在演示范围，如实说明范围）/ `need_dept`（识别不到科室，如实请用户补充）/ `refused_sensitive`（敏感请求）/ `refused_injection`（指令注入）/ `out_of_scope_general`（无关问题）/ `demo_no_fixture`（演示模式无内置样例）
 
 **辅助接口**：
 
@@ -233,27 +328,67 @@ app/
 ├── 启动.bat                   双击启动（Windows）
 ├── package.json               npm start / 测试脚本
 ├── netlify.toml               云部署配置（publish + functions + 重定向）
-├── netlify/functions/         Serverless：chat / reset / health / sessions
+├── netlify/functions/         Serverless：chat / reset / health / sessions / history / stats
 ├── lib/
-│   ├── search.js              双通道检索 + 权威分级 + 时效格式化
-│   ├── hospitals.js           医院官网白名单（每条附核实证据 URL）
+│   ├── search.js              双通道检索 + 权威分级 + 时效格式化（STALE_DAYS=180）
+│   ├── hospitals.js           医院官网白名单（每条附核实证据 URL）+ 院名可信度判定
+│   ├── campus.js              ⭐ 进阶1：医院 → 院区映射（每条附核实证据 URL；核不到就如实标"待核实"）
 │   ├── intent.js              规则式意图解析（含"第N家"承接）
-│   ├── answer.js              四段式 + 三态 + 拒答矩阵
+│   ├── answer.js              四段式 + 三态 + 拒答矩阵 + 院区消歧 / 冲突提示 / 交叉核验
 │   └── chat.js                会话管理 + 统一入口
 ├── public/
-│   ├── index.html             网页版（四区 + 手机端适配）
+│   ├── index.html             网页版（四区 + 手机端适配 + 对比表：地区/院区/公开资源与服务信息）
 │   └── mini.html              小程序模拟版（手机壳 + 聊天式）
-├── scripts/                   三个自测脚本（检索/核心层/端到端）
+├── scripts/                   自测与取证脚本（见下）
 ├── .env.example               环境变量示例（不含真实密钥）
 └── .gitignore
 ```
 
+**交付物清单（文档侧）**：
+
+| 文件 | 内容 | 生成方式 |
+|---|---|---|
+| `README.md` | 使用与架构说明、依赖与凭证清单、进阶项说明 | 人工维护 |
+| `测试记录_8组.md` | **29 组**测试（含进阶1/进阶2/地区识别专组），断言式 | `npm run test:record` |
+| `进阶项实测证据.md` | 进阶1 四机制 + 进阶2/3 + 角色视角 + **交付前 23 项全项实测** | `npm run test:advanced` + `npm run test:final` |
+| `进阶项实测证据_手机适配.md` | 手机端适配的**代码级证据**（明确标注"非截图"） | `npm run test:mobile` |
+| `已验证城市清单.md` | 演示范围内 9 城 + 范围外地名处理（16 项断言） | `npm run test:cities` |
+
 ---
 
-## 十二、自测方式（可复现）
+## 十二、自测与取证方式（可复现）
 
 ```bash
-node scripts/test-search.mjs "北京 卒中中心 医院"   # 双通道连通性
-node scripts/test-lib.mjs    "北京 卒中中心 医院"   # 核心层：分级/去重/时效
-node scripts/test-answer.mjs                        # 端到端 5 组场景
+# ① 既有回归（P0 修复 + 核心层 + 端到端）
+npm run test:search                     # 双通道连通性
+npm run test:lib                        # 核心层：分级 / 去重 / 时效
+npm run test:answer                     # 端到端场景
+npm run test:fixes                      # P0/P1 修复断言（78 项）
+
+# ② 测试记录（17 组，含进阶1/进阶2 专组；**断言式，未通过就标 ❌**）
+npm run test:record                     # → 测试记录_8组.md
+
+# ③ 进阶项取证（需先起服务：node server.mjs）
+BASE=http://127.0.0.1:8891 npm run test:advanced   # → 进阶项实测证据.md（进阶1 四机制 + 进阶2/3）
+BASE=http://127.0.0.1:8891 npm run test:mobile     # → 进阶项实测证据_手机适配.md（**代码级证据，非截图**）
+BASE=http://127.0.0.1:8891 npm run test:cities     # → 已验证城市清单.md（支持范围 + 范围外地名的处理）
+BASE=http://127.0.0.1:8891 npm run test:final      # 20 项全项实测 → 追加进《进阶项实测证据.md》
+
+# ④ 指向公网入口复核（无需本地密钥）
+BASE=https://opc-hospital-assistant.netlify.app npm run test:final
 ```
+
+> 所有取证脚本**判据全部实时计算**：未通过项打印 `FAIL` 并让脚本以退出码 1 结束；`test:record` 未通过就标 ❌，**不写死结论**。
+
+### 手机端适配：目前是**代码级证据**，不是截图（如实登记）
+
+| 项 | 状态 |
+|---|---|
+| `viewport-fit=cover` / `width=device-width` / `-webkit-text-size-adjust` | ✅ 代码级证据（`scripts/gen-mobile-evidence.mjs` 逐项断言并摘录原文） |
+| `@media (max-width:560px)` 规则内容（输入区纵向堆叠、主按钮整行、标题字号下调） | ✅ 代码级证据（脚本把规则原文打印进证据文件） |
+| `/mini.html` 手机壳页面可达 | ✅ 代码级证据（HTTP 200 + 手机壳容器） |
+| **375 / 390 / 414px 真实视觉截图** | ❌ **未做** —— 取证机器**无可用浏览器**，无法截图；**不拿代码级证据冒充截图** |
+| 真机（iOS Safari / 微信内置浏览器）实测 | ❌ 未做（无可用真机与测试小程序授权） |
+| 触摸目标尺寸的像素级测量 | ❌ 未做（需浏览器 DevTools） |
+
+> 因此本项目在《进阶项实测证据.md》《提交表单·我的答案》里一律表述为**「手机端适配为代码级验证，视觉截图待补」**，不表述为"已完成手机端视觉验收"。
