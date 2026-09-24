@@ -202,6 +202,18 @@ renderChips();
 let sessionId = localStorage.getItem('mini_session') || ('mini-' + Math.random().toString(36).slice(2, 10));
 localStorage.setItem('mini_session', sessionId);
 
+/* ⭐ P0 无状态修复：会话状态（城市 / 上一轮科室·资源 / 上一轮医院列表 / 轮次）由**前端携带**。
+   serverless 下每个请求可能落在不同函数实例上，服务端内存不可靠 —— 把服务端返回的 context
+   存在 sessionStorage，每次请求原样带上，即可跨实例续接（本地单进程模式行为不变）。 */
+const CTX_KEY = 'mini_ctx';
+let CTX = (function () { try { return JSON.parse(sessionStorage.getItem(CTX_KEY) || 'null'); } catch (e) { return null; } })();
+function saveCtx(ctx) {
+  if (!ctx || typeof ctx !== 'object') return;
+  CTX = ctx;
+  try { sessionStorage.setItem(CTX_KEY, JSON.stringify(ctx)); } catch (e) { /* 隐私模式：内存里仍可用 */ }
+}
+function clearCtx() { CTX = null; try { sessionStorage.removeItem(CTX_KEY); } catch (e) {} }
+
 const TIER_SHORT = { A: 'A级·已核实', B: 'B级·官网', C: 'C级·待核实', D: 'D级·待核实' };
 const TIER_CLASS = { A: 'bA', B: 'bB', C: 'bC', D: 'bC' };
 const ST_TEXT = {
@@ -303,10 +315,12 @@ function viewPanels(srcs) {
     h += '<div class="metrics">';
     h += '<div class="metric"><div class="k">真实检索</div><div class="v">' + s.search.searches + '</div></div>';
     h += '<div class="metric"><div class="k">缓存命中</div><div class="v">' + s.search.cacheHits + '</div></div>';
-    h += '<div class="metric"><div class="k">活跃会话</div><div class="v">' + s.sessions + '</div></div>';
+    h += '<div class="metric"><div class="k">本实例会话</div><div class="v">' + s.sessions + '</div></div>';
     h += '<div class="metric"><div class="k">失败重试</div><div class="v">' + s.search.retries + '</div></div>';
     h += '</div>';
     if (s.rateLimit) h += '<div class="hint" style="margin-top:5px">限流 ' + s.rateLimit.max + ' 次/' + Math.round(s.rateLimit.windowMs / 1000) + ' 秒 · 数据来自 /api/stats</div>';
+    // ⚠️ 计数口径如实标注：serverless 下这是**单实例**计数，不是全局统计
+    if (s.countScope === 'single-instance') h += '<div class="hint" style="margin-top:5px;background:#fdf4e3;border-color:#ecd3a3;color:#8a5a12">⚠️ <b>计数口径＝单实例</b>：只反映处理本次请求的那个函数实例，<b>不代表全站累计</b>。会话状态由<b>前端携带</b>，不依赖服务端内存。</div>';
     h += '</div>';
     return h;
   }
@@ -339,10 +353,11 @@ async function send() {
   try {
     const r = await fetch('/api/chat', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message, sessionId })
+      body: JSON.stringify({ message, sessionId, context: CTX })   // ⭐ 带上前端保存的会话状态
     });
     const data = await r.json();
     if (data.sessionId) { sessionId = data.sessionId; localStorage.setItem('mini_session', sessionId); }
+    if (data.context) saveCtx(data.context);                       // ⭐ 存下更新后的 context，下次请求带上
     if (data.demo) showDemoBanner(data.demoNotice);
     typing.remove();
     addMsg('ai', renderCompact(data));
@@ -356,9 +371,15 @@ async function send() {
 }
 
 async function reset() {
-  try { await fetch('/api/reset', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId }) }); } catch (e) {}
+  let fresh = null;
+  try {
+    const r = await fetch('/api/reset', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId, context: CTX }) });
+    const j = await r.json();
+    if (j && j.context) fresh = j.context;
+  } catch (e) {}
   sessionId = 'mini-' + Math.random().toString(36).slice(2, 10);
   localStorage.setItem('mini_session', sessionId);
+  if (fresh) saveCtx(Object.assign({}, fresh, { sessionId })); else clearCtx();   // ⭐ 同时清掉前端携带的会话状态
   chat.innerHTML = '';
   addMsg('ai', '会话已重置。请重新描述你要查的医院资源或便民信息。');
   $('q').value = '';

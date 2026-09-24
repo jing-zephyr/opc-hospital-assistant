@@ -194,13 +194,34 @@ OPC_SEARCH_MODE=auto
 
 ---
 
-## 六、会话管理
+## 六、会话管理（⭐ 无状态架构：会话状态由**前端携带**）
 
-- **会话标识**：前端生成 `sessionId` 并存入 `localStorage`，随每次请求提交；
-- **服务端存储**：内存 Map，`TTL = 7 天`、最多 `200` 个会话（FIFO 淘汰）、单会话最多 `100` 轮；
-- **多轮记忆**：记住会话内**城市**与**上一轮识别出的医院列表**；
-- **会话隔离**：不同 `sessionId` 完全隔离；
-- **重置**：页面「重置会话」按钮 / 小程序胶囊里的 ⊙ → 调 `POST /api/reset`。
+**为什么这么设计**：公网部署在 **Netlify Functions（serverless）** 上 —— 同一 `sessionId` 的连续请求
+可能落在**不同的函数实例**，实例之间的进程内内存互不可见。若把"上下文记忆"只放在服务端内存里，
+就会出现"**本地好好的、公网随机断记忆**"（第 2 步「换成发热门诊」接不上第 1 步的城市、
+第 3 步「第二家的地址呢」找不到可承接的医院列表）——这正好打在官方基础需求4（上下文记忆 /
+支持补充条件与继续追问）的验收点上。因此本作品把会话状态改成**前端携带**：
+
+```
+前端 sessionStorage                     POST /api/chat                    服务端（任意实例，无状态）
+┌────────────────┐   context  ───▶   ┌───────────────────┐   ──▶  resolveSession()
+│ CTX = {…}      │                   │  handleChat(body) │        ① 优先用 body.context
+└────────────────┘   ◀─── context    └───────────────────┘        ② 兜底用本进程内存 Map（本地模式）
+         ▲        （更新后的 context：城市 / 上一轮科室·资源 / 上一轮医院列表 / 轮次）
+         └───────────────────────────────────────────────────────────────┘
+   前端把响应里的 context 原样存起来，下次请求带上 —— 于是换实例也不丢上下文。
+```
+
+| 项 | 说明 |
+|---|---|
+| **会话标识** | 前端生成 `sessionId` 并存入 `localStorage`，随每次请求提交 |
+| **会话状态** | `context` 字段（城市 / 上一轮科室与资源 / 上一轮医院列表 / 轮次），**前端 `sessionStorage` 保存**，每次请求回传；服务端**不依赖**它存在于内存 |
+| **服务端内存 Map** | **仅**作为本地单进程模式的加速与兼容（TTL 7 天、最多 200 会话、单会话最多 100 轮）；serverless 下不保证存在，**不作为会话的唯一来源** |
+| **多轮记忆** | 记住会话内**城市**、**上一轮识别出的医院列表**、**上一轮科室/资源**（供"第 2 家""杭州，优先公立医院"这类承接） |
+| **context 上限** | 回传最近 **40 条轮次** + 最近一次结果的 **12 家医院**（防止请求体无限增长）；字段**白名单**化，院区信息一律由本地院区表按院名重算（不信任前端传的结构） |
+| **会话隔离** | 不同 `sessionId` 完全隔离 |
+| **重置** | 页面「重置会话」按钮 / 小程序胶囊里的 ⊙ → 调 `POST /api/reset`，**同时**清服务端内存**与**前端 `context`（接口会返回一个空的 `context` 供前端覆盖） |
+| **兼容性** | **不带** `context` 的老调用方（旧脚本/旧小程序版本）自动回落服务端内存，本地单进程行为与改造前完全一致 |
 
 ---
 
@@ -227,7 +248,9 @@ OPC_SEARCH_MODE=auto
 POST /api/chat
 Content-Type: application/json
 
-{ "message": "北京有哪些医院设有卒中中心", "sessionId": "wx-session-001" }
+{ "message": "北京有哪些医院设有卒中中心",
+  "sessionId": "wx-session-001",
+  "context": null }                      // ⭐ 会话状态：首次为 null，之后每次把上次响应里的 context 原样回传
 ```
 
 ```json
@@ -243,7 +266,17 @@ Content-Type: application/json
   "queriedAt": "2026-09-23 02:50",
   "contextCity": "北京",
   "hospitals": [ { "name": "…", "tier": "A" } ],
-  "turn": 2
+  "turn": 2,
+  "context": {                            // ⭐ 更新后的会话状态：前端存起来，下次请求带上（跨 serverless 实例续接）
+    "v": 1, "sessionId": "wx-session-001", "city": "北京",
+    "lastDepartments": ["卒中中心"], "lastResources": [],
+    "hospitals": [ { "name": "…", "fullName": "…", "tier": "A", "url": "…" } ],
+    "turns": [ { "role": "user", "text": "…", "at": 1758700000000 },
+               { "role": "assistant", "status": "ok", "at": 1758700000001 } ],
+    "turnTotal": 2
+  },
+  "contextSource": "client-context",
+  "contextNotice": "会话状态由前端携带：…"
 }
 ```
 
@@ -253,11 +286,12 @@ Content-Type: application/json
 
 | 方法 | 路径 | 用途 |
 |---|---|---|
-| POST | `/api/reset` | 重置会话（新会话与旧会话相互隔离） |
-| GET | `/api/history?sessionId=` | **查看本会话历史**（城市、识别出的医院、轮次、时间） |
-| GET | `/api/stats` | **运行指标**：检索调用次数、缓存命中、重试、失败、缓存大小、限流阈值（**不含任何密钥**） |
-| GET | `/api/health` | 健康检查 + 通道配置状态 |
-| GET | `/api/sessions` | 会话计数（仅计数与城市，不含对话内容） |
+| POST | `/api/reset` | 重置会话（新会话与旧会话相互隔离）；**返回值里带一个空的 `context`**，前端用它覆盖本地保存的会话状态，重置才完整生效 |
+| GET | `/api/history?sessionId=&context=<URL编码JSON>` | **查看本会话历史**（城市、识别出的医院、轮次、时间）。⭐ 无状态架构下历史由**前端携带的 context** 回显；长 context 建议用 `base64url(JSON)` 传 |
+| POST | `/api/history` | 同上，body 传 `{"sessionId":…,"context":{…}}`（context 较长时用这个，避免 URL 过长） |
+| GET | `/api/stats` | **运行指标**：检索调用次数、缓存命中、重试、失败、缓存大小、限流阈值（**不含任何密钥**）。⭐ 带 `countScope: "single-instance"` + `instanceId` + `countScopeNote`，**如实标注"单实例计数，不代表全局"** |
+| GET | `/api/health` | 健康检查 + 通道配置状态 + `sessionState=client-carried`、`contextVersion` |
+| GET | `/api/sessions` | 会话计数（仅计数与城市，不含对话内容）；⭐ 同样标注 `countScope: single-instance` |
 
 **说明**：本项目未接入在运营的正式小程序（大赛不提供 AppID/账号/生产权限）。`/mini.html` 为**小程序形态的模拟调用方**，用于验证"消息输入 → 会话标识 → 答案与来源返回 → 异常状态"的完整链路。**模拟范围已在此明确标注。**
 
@@ -289,23 +323,31 @@ Content-Type: application/json
 
 | 存储 | 内容 | 更新策略 |
 |---|---|---|
-| 服务端内存 Map | 会话（城市、医院列表、轮次计数） | TTL 7 天自动清理；超 200 会话 FIFO 淘汰 |
-| **检索结果缓存** | 同一查询的检索结果 | **TTL 10 分钟**、上限 200 条；命中则不消耗检索额度（可用 `/api/stats` 的 `cacheHits` 验证） |
-| **限流窗口** | 每会话请求时间戳 | **每会话 20 次/分钟**；超限返回 `rate_limited` |
+| **前端 `sessionStorage`** | **会话状态 `context`**（城市、上一轮科室·资源、上一轮医院列表、轮次） | ⭐ 无状态架构下**这是会话的唯一可靠来源**；每次 `/api/chat` 响应都会刷新，前端在下次请求回传 |
+| 服务端内存 Map | 会话（城市、医院列表、轮次计数） | **仅本地单进程模式的加速与兼容**；TTL 7 天自动清理；超 200 会话 FIFO 淘汰。serverless 下每个函数实例各自一份，**不保证存在** |
+| **检索结果缓存** | 同一查询的检索结果 | **TTL 10 分钟**、上限 200 条；命中则不消耗检索额度。⚠️ **缓存同样是进程内的**：serverless 下只在"同一实例"内有效（`/api/stats` 的 `instanceId` 可自证两次请求是否同实例） |
+| **限流窗口** | 每会话请求时间戳 | **每会话 20 次/分钟**；超限返回 `rate_limited`。⚠️ 计数同样在进程内，serverless 下只覆盖落在同一实例的请求 |
 | 浏览器 `localStorage` | 仅 `sessionId` | 重置会话时更换 |
 | **不落库** | 检索原文、页面正文、患者信息 | **不存储**，每次实时检索 |
 
 **「不落库原文」是刻意的**：符合"事实可聚合、原文不搬运、来源给深链"的合规要求，也避免了数据滞留风险。
 
-### 运行保障（进阶3）
+### 运行保障（进阶3）—— 含**计数口径**的如实标注
+
+> ⚠️ 公网部署在 **Netlify Functions（serverless）** 上，**函数实例内存互不共享**。因此
+> `searches / cacheHits / retries / failures / sessions / rateLimit` 这些进程内计数，
+> 口径一律是**「处理本次请求的那个实例」＝单实例**，**不代表全站或全局累计**，实例被平台回收后会归零。
+> 接口已在 `/api/stats` 返回 `countScope: "single-instance"`、`instanceId`、`countScopeNote` 明确标注；
+> 后台"管理视角"面板也会把这句话显示出来 —— **本作品不把单实例计数说成全局统计**。
+> 会话能力**不依赖**这些内存计数（会话状态由前端携带），所以实例回收不影响多轮记忆。
 
 | 能力 | 实现 | 验证方式 |
 |---|---|---|
-| 请求限流 | 每会话 20 次/分钟 | `/api/stats` 的 `rateLimit`；连续请求会出现 `rate_limited` |
-| 缓存 | 检索结果 TTL 10 分钟 | `/api/stats` 的 `search.searches` / `search.cacheHits` |
+| 请求限流 | 每会话 20 次/分钟（进程内） | 库级实测：同实例 25 连发 → 放行 20 + `rate_limited` 5（见《进阶项实测证据.md》"交付前全项实测"） |
+| 缓存 | 检索结果 TTL 10 分钟（进程内） | 库级实测（桩化出网，确定性）：第 2 次 `cached=true` 且不新增真实检索；HTTP 层**同实例**时 `/api/stats` 的 `cacheHits` 会 +1 |
 | 失败重试 | 单通道失败自动重试 1 次 | `/api/stats` 的 `search.retries` |
-| 调用成本记录 | 累计检索次数 / 缓存命中 / 重试 / 失败 | `/api/stats` |
-| 历史查看与清除 | `/api/history` 查看；`/api/reset` 清除 | 见《进阶项实测证据.md》 |
+| 调用成本记录 | 检索次数 / 缓存命中 / 重试 / 失败（**单实例口径**） | `/api/stats`（含 `countScopeNote`） |
+| 历史查看与清除 | `GET/POST /api/history`（带 `context`）查看；`POST /api/reset` 清除 | 见《进阶项实测证据.md》；重置会**同时**清服务端内存与前端 context |
 | **降级方式** | 检索失败 → `search_failed` 并建议官网核实；无结果 → `no_result` 且**不断言"没有"**；单通道挂掉另一通道照常出结果 | 测试记录第 5/6 组、《进阶项实测证据.md》 |
 
 ---
@@ -350,7 +392,7 @@ app/
 |---|---|---|
 | `README.md` | 使用与架构说明、依赖与凭证清单、进阶项说明 | 人工维护 |
 | `测试记录_8组.md` | **29 组**测试（含进阶1/进阶2/地区识别专组），断言式 | `npm run test:record` |
-| `进阶项实测证据.md` | 进阶1 四机制 + 进阶2/3 + 角色视角 + **交付前 23 项全项实测** | `npm run test:advanced` + `npm run test:final` |
+| `进阶项实测证据.md` | 进阶1 四机制 + 进阶2/3 + 角色视角 + **交付前 29 项全项实测** | `npm run test:advanced` + `npm run test:final` |
 | `进阶项实测证据_手机适配.md` | 手机端适配的**代码级证据**（明确标注"非截图"） | `npm run test:mobile` |
 | `已验证城市清单.md` | 演示范围内 9 城 + 范围外地名处理（16 项断言） | `npm run test:cities` |
 
@@ -369,16 +411,36 @@ npm run test:fixes                      # P0/P1 修复断言（78 项）
 npm run test:record                     # → 测试记录_8组.md
 
 # ③ 进阶项取证（需先起服务：node server.mjs）
-BASE=http://127.0.0.1:8891 npm run test:advanced   # → 进阶项实测证据.md（进阶1 四机制 + 进阶2/3）
-BASE=http://127.0.0.1:8891 npm run test:mobile     # → 进阶项实测证据_手机适配.md（**代码级证据，非截图**）
-BASE=http://127.0.0.1:8891 npm run test:cities     # → 已验证城市清单.md（支持范围 + 范围外地名的处理）
-BASE=http://127.0.0.1:8891 npm run test:final      # 20 项全项实测 → 追加进《进阶项实测证据.md》
+BASE=http://127.0.0.1:8787 npm run test:advanced   # → 进阶项实测证据.md（进阶1 四机制 + 进阶2/3）
+BASE=http://127.0.0.1:8787 npm run test:mobile     # → 进阶项实测证据_手机适配.md（**代码级证据，非截图**）
+BASE=http://127.0.0.1:8787 npm run test:cities     # → 已验证城市清单.md（支持范围 + 范围外地名的处理）
+BASE=http://127.0.0.1:8787 npm run test:final      # 29 项全项实测（含 P0 无状态回归）→ 追加进《进阶项实测证据.md》
 
 # ④ 指向公网入口复核（无需本地密钥）
 BASE=https://opc-hospital-assistant.netlify.app npm run test:final
+
+# ⑤ 部署后自检（**部署脚本末尾自动调用**；也可单独跑）
+npm run verify:deploy                              # 默认查公网站点
+BASE=http://127.0.0.1:8787 npm run verify:deploy   # 本地也能跑
 ```
 
 > 所有取证脚本**判据全部实时计算**：未通过项打印 `FAIL` 并让脚本以退出码 1 结束；`test:record` 未通过就标 ❌，**不写死结论**。
+>
+> **`test:final` / `test:cities` 判据口径变更记录（2026-09-24，因 P0 无状态架构改造）**：
+> 1. **缓存 / 限流**：公网跑在 serverless 上，进程内计数与检索缓存**天然是单实例口径**，跨请求不可比 ——
+>    原判据"两次 HTTP 之间 `cacheHits` 必须 +1"在公网上会随机不成立。改为两条**硬判据**：
+>    ① `/api/stats` 必须如实标注 `countScope=single-instance` + `instanceId` + `countScopeNote`；
+>    ② 缓存与限流的**机制**用"库级·进程内·桩化出网"的确定性测试验证（不依赖实例亲和，也不消耗检索额度）；
+>    ③ HTTP 层仅当**同实例**（`instanceId` 相同）时断言缓存命中 ≥1，跨实例时明确打印"**不适用**"而不是算通过。
+> 2. **会话历史**：原判据依赖服务端内存（`exists=true`），在公网上随机失败。新架构下**判据加强**为
+>    "同一会话三步 + `context` 回传 → `/api/history` 必须回显真实轮次（6 条）"，并新增**冷实例模拟**
+>    （3 个全新模块实例、内存会话数 0/0/0，仅靠 context 续接）与"不带 context 的老调用方行为不变"两条硬回归。
+> 3. **省级输入（`test:cities`）**：原判据要求 `status==='ok'`；但 `status` 是由**本次检索到的来源级别**推导的
+>    （只有 C 级线索时必须 `partial`，**不许**把非权威来源说成已核实），与"省级是否被识别"无关，上游结果会随时间变化。
+>    改为与 A 组**同一标准**（ok/partial 均可）+ **同一硬约束**（有 A/B 级来源时不得是 `partial`）——**没有放水**。
+> 4. **进阶1② 区县院区判据**：原判据用"顺义医院 … 200 字符内出现「本院（东城区宽街）」"这种邻近度近似，
+>    会被**别名片段**（实测出现来源标题残句「携手顺义医院」）或正常排版误伤 → 假 FAIL。改为**结构判定**：
+>    主名为"…顺义医院"的条目**必须存在**，且其自身「院区」字段**不得**是母院本院（更严格、更贴合原意）。
 
 ### 手机端适配：目前是**代码级证据**，不是截图（如实登记）
 

@@ -3,6 +3,22 @@
   functions = "netlify/functions"
   command = "echo no-build-step"
 
+# ⚠️ P1 根因修复：关闭 Netlify 的 HTML 后处理（Post-processing → Pretty URLs）。
+#    开了 pretty_urls 之后，线上首页里的 `<a href="/mini.html">` 会被**改写**成 `<a href='/mini'>`
+#    （引号也换成单引号）——于是"线上首页找不到 mini.html 入口"，看起来像"文件没部署上去"。
+#    注意：CLI 直接 `deploy --dir public` 时不一定读这里的配置，因此
+#    scripts/deploy-netlify-auto.mjs 还会用 Management API PATCH 站点的 processing_settings，两手都做。
+[build.processing]
+  skip_processing = false
+[build.processing.html]
+  pretty_urls = false
+
+# 明确给出无扩展名入口的 301/200 规则：即便将来有人重新打开 pretty_urls，/mini 也仍然可用
+[[redirects]]
+  from = "/mini"
+  to = "/mini.html"
+  status = 200
+
 # 小程序/网页统一接口 → Serverless 函数
 [[redirects]]
   from = "/api/chat"

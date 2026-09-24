@@ -218,6 +218,20 @@ renderChips();
 let sessionId = localStorage.getItem('opc_session') || ('web-' + Math.random().toString(36).slice(2, 10));
 localStorage.setItem('opc_session', sessionId);
 
+/* ⭐ P0 无状态修复：会话状态（城市 / 上一轮科室·资源 / 上一轮医院列表 / 轮次）改由**前端携带**。
+   为什么：Netlify Functions 是 serverless，同一 sessionId 的连续请求可能落到**不同的函数实例**，
+   服务端内存 Map 里的上下文会随机“丢”——公网演示时第 2 步可能接不上第 1 步的城市。
+   做法：把服务端每次返回的 context 存进 sessionStorage，下次请求原样带上；后端优先用它。
+   （本地单进程 `node server.mjs` 行为不变：后端仍保留内存会话作为加速与兼容。） */
+const CTX_KEY = 'opc_ctx';
+let CTX = (function () { try { return JSON.parse(sessionStorage.getItem(CTX_KEY) || 'null'); } catch (e) { return null; } })();
+function saveCtx(ctx) {
+  if (!ctx || typeof ctx !== 'object') return;
+  CTX = ctx;
+  try { sessionStorage.setItem(CTX_KEY, JSON.stringify(ctx)); } catch (e) { /* 隐私模式/超额：内存里仍可用 */ }
+}
+function clearCtx() { CTX = null; try { sessionStorage.removeItem(CTX_KEY); } catch (e) {} }
+
 const TIER_SHORT = { A: 'A级·已核实', B: 'B级·官网', C: 'C级·待核实', D: 'D级·待核实' };
 const TIER_CLASS = { A: 'bA', B: 'bB', C: 'bC', D: 'bC' };
 const ST_TEXT = {
@@ -418,12 +432,21 @@ function viewPanels(srcs) {
     h += '<div class="metric"><div class="k">缓存命中</div><div class="v">' + s.search.cacheHits + '</div></div>';
     h += '<div class="metric"><div class="k">失败重试</div><div class="v">' + s.search.retries + '</div></div>';
     h += '<div class="metric"><div class="k">失败次数</div><div class="v">' + s.search.failures + '</div></div>';
-    h += '<div class="metric"><div class="k">活跃会话</div><div class="v">' + s.sessions + '</div></div>';
+    h += '<div class="metric"><div class="k">本实例会话</div><div class="v">' + s.sessions + '</div></div>';
     h += '<div class="metric"><div class="k">缓存条目</div><div class="v">' + (s.cache ? s.cache.size : '—') + '</div></div>';
     h += '</div>';
     if (s.rateLimit && s.cache) {
       h += '<div class="hint" style="margin-top:7px">限流：每会话 ' + s.rateLimit.max + ' 次 / ' +
-        Math.round(s.rateLimit.windowMs / 1000) + ' 秒　｜　缓存 TTL ' + Math.round(s.cache.ttlMs / 60000) + ' 分钟　｜　来源：服务端实时统计</div>';
+        Math.round(s.rateLimit.windowMs / 1000) + ' 秒　｜　缓存 TTL ' + Math.round(s.cache.ttlMs / 60000) + ' 分钟</div>';
+    }
+    // ⚠️ 计数口径必须如实标注：serverless 下每个函数实例内存独立，这些数字**不是**全局统计
+    if (s.countScope === 'single-instance') {
+      h += '<div class="hint" style="margin-top:7px;background:#fdf4e3;border-color:#ecd3a3;color:#8a5a12">' +
+        '⚠️ <b>计数口径＝单实例</b>（公网部署在 Netlify Functions 上，每个函数实例内存独立）：以上数字只反映' +
+        '<b>处理本次请求的那个实例</b>，<b>不代表全站或全局累计</b>，实例被平台回收后会归零。' +
+        '会话记忆不受影响 —— 会话状态由<b>前端携带</b>（context），不依赖服务端内存。' +
+        (s.instanceId ? '<br>实例标识：<code>' + esc(String(s.instanceId)) + '</code>（同一实例两次请求该值相同）。' : '') +
+        '</div>';
     }
     h += '</div>';
     return h;
@@ -450,10 +473,11 @@ async function send() {
   try {
     const r = await fetch('/api/chat', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message, sessionId })
+      body: JSON.stringify({ message, sessionId, context: CTX })   // ⭐ 带上前端保存的会话状态（可为 null）
     });
     const data = await r.json();
     if (data.sessionId) { sessionId = data.sessionId; localStorage.setItem('opc_session', sessionId); }
+    if (data.context) saveCtx(data.context);                       // ⭐ 存下更新后的 context，下次请求带上
     if (data.demo) showDemoBanner(data.demoNotice);
     $('q').value = '';                                  // 发送后清空
     $('hintCard').style.display = 'none';
@@ -471,9 +495,16 @@ async function send() {
 }
 
 async function reset() {
-  try { await fetch('/api/reset', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId }) }); } catch (e) {}
+  // ⭐ 无状态：重置必须**同时**清服务端内存与本端携带的 context，否则旧上下文会在下次请求里被带回来
+  let fresh = null;
+  try {
+    const r = await fetch('/api/reset', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId, context: CTX }) });
+    const j = await r.json();
+    if (j && j.context) fresh = j.context;
+  } catch (e) {}
   sessionId = 'web-' + Math.random().toString(36).slice(2, 10);
   localStorage.setItem('opc_session', sessionId);
+  if (fresh) saveCtx(Object.assign({}, fresh, { sessionId })); else clearCtx();
   $('outCard').style.display = 'none';
   $('hintCard').style.display = '';
   $('q').value = '';

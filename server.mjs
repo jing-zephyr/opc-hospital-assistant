@@ -4,7 +4,7 @@ import { createServer } from 'node:http'
 import { readFile } from 'node:fs/promises'
 import { join, extname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { handleChat, resetSession, listSessions, getHistory, usageStats } from './lib/chat.js'
+import { handleChat, resetSession, listSessions, getHistory, usageStats, CONTEXT_VERSION, CONTEXT_NOTICE } from './lib/chat.js'
 import { searchMode, DEMO_NOTICE } from './lib/search.js'
 
 const PORT = Number(process.env.PORT || 8787)
@@ -49,10 +49,21 @@ const server = createServer(async (req, res) => {
       return json(res, 200, resetSession(String(b.sessionId || '')))
     }
     if (url.pathname === '/api/sessions' && req.method === 'GET') {
-      return json(res, 200, { sessions: listSessions() })
+      return json(res, 200, {
+        // ⚠️ 口径如实标注：serverless/多进程下这里只看到"本实例"内存里的会话
+        count: listSessions().length,
+        countScope: 'single-instance',
+        sessions: listSessions(),
+      })
     }
+    // 会话历史：无状态架构下**由前端携带 context**（GET 用 ?context=<URL编码JSON>，或 POST body.context）
     if (url.pathname === '/api/history' && req.method === 'GET') {
-      return json(res, 200, getHistory(url.searchParams.get('sessionId') || ''))
+      const sid = url.searchParams.get('sessionId') || ''
+      return json(res, 200, getHistory(sid, url.searchParams.get('context')))
+    }
+    if (url.pathname === '/api/history' && req.method === 'POST') {
+      const b = await readBody(req)
+      return json(res, 200, getHistory(String(b.sessionId || ''), b.context))
     }
     if (url.pathname === '/api/stats' && req.method === 'GET') {
       return json(res, 200, usageStats())
@@ -68,6 +79,11 @@ const server = createServer(async (req, res) => {
         demoNotice: sm.mode === 'demo' ? DEMO_NOTICE : null,
         demoReason: sm.mode === 'demo' ? sm.reason : null,
         channels: sm.channels,
+        // P0 架构标识：会话状态由前端携带（serverless 安全），context 规格版本号
+        sessionState: 'client-carried',
+        stateless: true,
+        contextVersion: CONTEXT_VERSION,
+        contextNotice: CONTEXT_NOTICE,
       })
     }
     const rel = url.pathname === '/' ? '/index.html' : url.pathname

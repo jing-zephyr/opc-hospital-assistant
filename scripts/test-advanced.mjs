@@ -208,14 +208,27 @@ log('**判定依据（以计数为准，不看耗时）**：第 2 次查询**新
 log('')
 log('> 说明：耗时受首次冷启动与网络波动影响，故用"是否新增检索调用"作为判据更严谨。缓存 TTL 10 分钟、上限 200 条。')
 log('')
+// ⭐ 口径如实标注（P0 无状态架构改造后新增）：serverless 下这些进程内计数/缓存**只在单实例内有效**
+log('> ⚠️ **计数与缓存的口径（必读）**：公网部署在 **Netlify Functions（serverless）** 上，'
+  + '**每个函数实例内存独立** —— 上面的"新增真实检索 / 新增缓存命中"只对**同一个实例**成立。'
+  + '实例被平台回收、或两次请求落到不同实例时，缓存不会命中、计数也会归零，**这属于正常现象**。'
+  + '`/api/stats` 已返回 `countScope: "single-instance"` + `instanceId` + `countScopeNote` 明确标注；'
+  + '**本作品不把单实例计数说成全局统计**。本节的数字来自**本地单进程**（`node server.mjs`，实例唯一），'
+  + '因此缓存/限流表现稳定可复现；公网同实例内的等价实测见《交付前全项实测》一节的"进阶3 缓存机制（库级·进程内）"与"HTTP 缓存（同实例）"两条。')
+log('')
 
 log('### 会话历史查看与重置')
-const hist = await get('/api/history?sessionId=' + sid)
 log('')
+const hist = await get('/api/history?sessionId=' + sid)
 log('- 历史查询：`exists=' + hist.exists + '`，城市=' + hist.city + '，识别医院 ' + (hist.hospitals || []).length + ' 家，轮次 ' + (hist.turns || []).length)
 const reset = await post('/api/reset', { sessionId: sid })
 const hist2 = await get('/api/history?sessionId=' + sid)
 log('- 重置后：`exists=' + hist2.exists + '`（' + (hist2.exists ? '❌ 未清除' : '✅ 已清除') + '）')
+log('')
+log('> ⚠️ **无状态架构说明**：上面的历史查询能用，是因为这里是**本地单进程**（服务端内存里有该会话）。'
+  + '公网 serverless 下实例内存互不共享，`/api/history` 必须由**前端携带的 `context`** 回显历史：'
+  + '`GET /api/history?sessionId=…&context=<base64url(JSON)>` 或 `POST /api/history {sessionId, context}`；'
+  + '两者都不传且服务端无记录时会如实返回 `exists=false` + 说明（**不假装有历史**）。见《交付前全项实测》。')
 log('')
 
 log('### 请求限流')
@@ -231,6 +244,10 @@ log('')
 
 log('### 调用成本 / 缓存 / 限流指标（`/api/stats`，不含密钥）')
 const stats = await get('/api/stats')
+log('')
+log('> ⚠️ 计数口径＝**单实例**（`countScope=' + stats.countScope + '`，`instanceId=' + stats.instanceId + '`）：'
+  + '公网 serverless 下每个函数实例内存独立，这些数字**只反映处理本次请求的那个实例**，'
+  + '**不代表全站或全局累计**；实例被回收后会归零。会话能力不依赖这些计数（会话状态由前端携带 `context`）。')
 log('')
 log('```json')
 log(JSON.stringify(stats, null, 2))

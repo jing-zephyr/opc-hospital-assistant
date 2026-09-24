@@ -2,7 +2,11 @@
 // 相比 deploy-netlify.mjs 的改进：
 //   1. 先用 Management API 找到/创建站点（避免 CLI 交互式提问卡死）
 //   2. 自动设置 BOCHA_API_KEY / TAVILY_API_KEY 环境变量
-//   3. 触发部署后轮询直到 ready，最后被测 /api/health
+//   3. **关闭站点的 HTML 后处理（Pretty URLs）** —— 否则线上首页的 `href="/mini.html"` 会被
+//      改写成 `href='/mini'`，造成"入口没上线"的假故障（P1 根因，见 scripts/verify-deploy.mjs 注释）
+//   4. 触发部署后轮询直到 ready，做一次真查
+//   5. **自动跑 scripts/verify-deploy.mjs 部署后自检**（首页 mini.html 入口 / /mini.html / health /
+//      API 基地址 / P0 无状态三步 / history 真实轮次 / stats 口径），未通过即以退出码 1 结束
 import { readFileSync, existsSync } from 'node:fs'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
@@ -72,7 +76,7 @@ console.log(`  ✅ 站点：${site.name}  id=${site.id}`)
 console.log(`     URL：${site.ssl_url || site.url}`)
 
 // ── 2. 设置环境变量 ────────────────────────────────────
-console.log('\n[2/5] 设置环境变量（BOCHA / TAVILY）…')
+console.log('\n[2/6] 设置环境变量（BOCHA / TAVILY）…')
 const wanted = {}
 if (env.BOCHA_API_KEY) wanted.BOCHA_API_KEY = env.BOCHA_API_KEY
 if (env.TAVILY_API_KEY) wanted.TAVILY_API_KEY = env.TAVILY_API_KEY
@@ -85,8 +89,24 @@ for (const [k, v] of Object.entries(wanted)) {
 }
 if (!Object.keys(wanted).length) console.log('  ⚠️ 本地没读到密钥，跳过（部署后需手动配）')
 
-// ── 3. 部署 ────────────────────────────────────────────
-console.log('\n[3/5] 部署中…')
+// ── 3. 关闭 HTML 后处理（Pretty URLs）—— P1 根因修复 ──────
+// 站点开了 processing_settings.html.pretty_urls 时，Netlify 会把线上 HTML 里的
+// `href="/mini.html"` 改写成 `href='/mini'`，导致"线上首页不含 mini.html 入口"的假故障。
+// 这一步是幂等的：已经是关闭状态时重复 PATCH 也不会报错。
+console.log('\n[3/6] 关闭站点 HTML 后处理（pretty_urls=false）…')
+const ps = await api(`/sites/${site.id}`, {
+  method: 'PATCH',
+  body: JSON.stringify({ processing_settings: { ignore_html_forms: true, html: { pretty_urls: false } } }),
+})
+if (ps.ok) {
+  console.log('  ✅ processing_settings →', JSON.stringify(ps.json.processing_settings))
+} else {
+  console.log(`  ⚠️ 设置失败（HTTP ${ps.status}）：${JSON.stringify(ps.json).slice(0, 240)}`)
+  console.log('     可到 Netlify 后台 Site configuration → Build & deploy → Post processing 手动关闭 Pretty URLs')
+}
+
+// ── 4. 部署 ────────────────────────────────────────────
+console.log('\n[4/6] 部署中…')
 const CACHE = 'C:\\Users\\T\\AppData\\Local\\npm-cache\\_npx'
 const cands = []
 for (const id of ['7ed0f2ef719899b5', 'da5c1b6ea715e8b4']) {
@@ -109,16 +129,16 @@ if (r.status !== 0) {
   process.exit(r.status || 1)
 }
 
-// ── 4. 验证 ────────────────────────────────────────────
+// ── 5. 验证 ────────────────────────────────────────────
 const base = site.ssl_url || site.url
-console.log(`\n[4/5] 验证 ${base}/api/health …`)
+console.log(`\n[5/6] 验证 ${base}/api/health …`)
 for (let i = 1; i <= 12; i++) {
   try {
     const hr = await fetch(`${base}/api/health`, { cache: 'no-store' })
     const j = await hr.json()
     console.log(`  尝试 ${i}：`, JSON.stringify(j))
     if (j && j.mode) {
-      console.log(`\n  mode=${j.mode}  bocha=${j.channels?.bocha}  tavily=${j.channels?.tavily}`)
+      console.log(`\n  mode=${j.mode}  bocha=${j.channels?.bocha}  tavily=${j.channels?.tavily}  sessionState=${j.sessionState}`)
       break
     }
   } catch (e) {
@@ -127,21 +147,20 @@ for (let i = 1; i <= 12; i++) {
   await new Promise((s) => setTimeout(s, 5000))
 }
 
-// ── 5. 真查一次 ────────────────────────────────────────
-console.log('\n[5/5] 真查一次「北京有哪些医院设有卒中中心」…')
-try {
-  const cr = await fetch(`${base}/api/chat`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ message: '北京有哪些医院设有卒中中心', sessionId: 'deploy-check-' + Date.now() }),
-  })
-  const j = await cr.json()
-  console.log(`  status=${j.status}  query=${JSON.stringify(j.query)}  sources=${(j.sources || []).length}`)
-  console.log('  answer[0] =', String(j.answer || '').split('\n').filter((x) => x.trim())[0]?.slice(0, 120))
-} catch (e) {
-  console.log('  ⚠️ 查询失败：', e.message)
+// ── 6. 部署后自检（scripts/verify-deploy.mjs）───────────
+// 断言：首页含 <a href="/mini.html"、/mini.html 200、/api/health 齐备、首页含 API 基地址、
+//       P0 同一会话三步、history 真实轮次、stats 口径如实标注。未通过 → 本脚本以退出码 1 结束。
+console.log('\n[6/6] 部署后自检（scripts/verify-deploy.mjs）…')
+const verify = spawnSync(process.execPath, [join(here, 'verify-deploy.mjs')], {
+  cwd: appDir, stdio: 'inherit', env: { ...process.env, BASE: base },
+})
+console.log('  自检退出码：', verify.status)
+if (verify.status !== 0) {
+  console.log('⚠️ 部署本身成功，但**部署后自检未通过** —— 请按上面的 ❌ 项处理（常见：CDN 仍在传播旧产物、或 HTML 后处理又被打开）。')
 }
 
-console.log(`\n✅ 完成。公网入口：${base}`)
+console.log(`\n${verify.status === 0 ? '✅ 完成（自检全通过）' : '⚠️ 完成（自检有未通过项）'}。公网入口：${base}`)
 console.log(`   测试页：${base}`)
 console.log(`   健康检查：${base}/api/health`)
+console.log(`   手机版：${base}/mini.html`)
+process.exitCode = verify.status === 0 ? 0 : 1

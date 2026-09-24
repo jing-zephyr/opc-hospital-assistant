@@ -16,6 +16,8 @@
     "test:mobile": "node scripts/gen-mobile-evidence.mjs",
     "test:cities": "node scripts/test-cities.mjs",
     "test:final": "node scripts/verify-final.mjs",
+    "verify:deploy": "node scripts/verify-deploy.mjs",
+    "deploy:auto": "node scripts/deploy-netlify-auto.mjs",
     "test:all-docs": "node scripts/regenerate-all.mjs"
   },
   "engines": {
