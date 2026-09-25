@@ -13,7 +13,7 @@
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{margin:0;padding:0;background:linear-gradient(180deg,#eaf4fd,#e3effb 55%,#dcebfa);color:var(--ink);
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
-    -webkit-text-size-adjust:100%}
+    -webkit-text-size-adjust:100%;overflow-x:hidden}
   .wrap{max-width:560px;margin:0 auto;padding:0 0 92px;min-height:100vh;position:relative}
 
   /* 顶栏 */
@@ -108,7 +108,9 @@
   details.fold>summary::-webkit-details-marker{display:none}
   details.fold>summary:hover{color:var(--b600)}
   .full{font-size:12.8px;line-height:1.78;white-space:pre-wrap;color:#3d5a78;margin-top:8px;
-    background:#f8fbfe;border:1px solid #e9f2fa;border-radius:9px;padding:9px 11px;max-height:300px;overflow-y:auto}
+    background:#f8fbfe;border:1px solid #e9f2fa;border-radius:9px;padding:9px 11px;max-height:300px;overflow-y:auto;
+    word-break:break-word;overflow-wrap:anywhere}  /* 长 URL 必须断行，否则把整页撑出横向滑动（iPhone 实测） */
+  .bub{overflow-wrap:anywhere;word-break:break-word}
   .src{border:1px solid var(--line);border-radius:9px;padding:8px 10px;margin-top:7px;background:#fbfdff}
   .src .t{font-size:12.5px;font-weight:600;color:var(--b900);line-height:1.45}
   .src .m{font-size:11px;color:var(--muted);margin-top:4px;line-height:1.6;word-break:break-all}
@@ -526,6 +528,10 @@ function resultHTML(d) {
     rows += '<div class="drow"><span class="dk">类别</span><span class="dv">' + esc(x.category || '来源未标明（待核实）') + '</span></div>';
     rows += '<div class="drow"><span class="dk">地区</span><span class="dv">' + esc(x.region || '来源未标明') + '</span></div>';
     rows += '<div class="drow"><span class="dk">院区</span><span class="dv">' + campusTxt + '</span></div>';
+    /* 该院官网（白名单反查到的才显示；查不到就不显示这一行 —— 不编域名） */
+    if (x.officialSite) rows += '<div class="drow"><span class="dk">官网</span><span class="dv">' +
+      '<a href="https://' + esc(x.officialSite) + '/" target="_blank" rel="noopener noreferrer">' + esc(x.officialSite) + '</a>' +
+      '<br><span class="dim">域名已核实可访问 · 预约挂号 / 联系电话 / 地址导航以官网公布为准</span></span></div>';
     rows += '<div class="drow"><span class="dk">来源</span><span class="dv">' + esc(x.site || '来源未标明') +
       ' · <a href="' + esc(x.url || '#') + '" target="_blank" rel="noopener noreferrer">打开原文</a><br>' +
       '<span class="dim">' + esc(String(x.title || '').slice(0, 58)) + '　｜　' +
@@ -581,6 +587,7 @@ function resultHTML(d) {
 /* ---------- 发送 ---------- */
 let busy = false;
 async function send(forced) {
+  try { window.__voiceStop && window.__voiceStop(); } catch (e) {}   /* 发送前先停语音，防止识别回调把话写回输入框 */
   const msg = (forced != null ? forced : $('q').value).trim();
   if (!msg) { tip('请先输入您要问的问题', 'err'); return; }
   if (busy) return;
@@ -735,21 +742,44 @@ document.querySelectorAll('.mask').forEach(m => { m.onclick = e => { if (e.targe
     alert(msg);
   }
 
+  const VTIP = '正在听您说话…说完再点一下这个按钮';
+  let dog = null;
+  function stopRec() {
+    if (dog) { clearTimeout(dog); dog = null; }
+    if (rec) { try { rec.stop(); } catch (e) {} }
+  }
+  /* 暴露给 send()：发出问题前先停语音，否则识别回调会把已发送的话又写回输入框（iPhone 实测"发送后输入框还在"） */
+  window.__voiceStop = stopRec;
+  /* 切后台 / 锁屏立即停：iOS Safari 端点判定不可靠，不停麦克风会一直挂 */
+  document.addEventListener('visibilitychange', () => { if (document.hidden && on) stopRec(); });
+
   mic.onclick = () => {
-    if (on && rec) { try { rec.stop(); } catch (e) {} return; }
+    if (on && rec) { stopRec(); return; }
     if (inWx) return guide('wx');
     if (!SR) return guide('noSR');
     try {
       rec = new SR();
       rec.lang = 'zh-CN'; rec.interimResults = true; rec.continuous = false; rec.maxAlternatives = 1;
-      rec.onstart = () => { on = true; mic.classList.add('on'); tip('正在听您说话…说完再点一下这个按钮'); };
-      rec.onend = () => { on = false; mic.classList.remove('on'); tip(''); };
-      rec.onerror = (e) => { on = false; mic.classList.remove('on'); tip(''); guide(e && e.error); };
+      rec.onstart = () => {
+        on = true; mic.classList.add('on'); tip(VTIP);
+        dog = setTimeout(() => { if (on) stopRec(); }, 12000);   /* 看门狗：最长听 12 秒自动停 */
+      };
+      rec.onend = () => {
+        on = false; mic.classList.remove('on');
+        if (dog) { clearTimeout(dog); dog = null; }
+        if ($('tip').textContent === VTIP) tip('');   /* 只清语音自己的提示，不清"正在检索"等别的提示 */
+      };
+      rec.onerror = (e) => { on = false; mic.classList.remove('on'); if (dog) { clearTimeout(dog); dog = null; } tip(''); guide(e && e.error); };
       rec.onresult = (e) => {
-        let s = '';
-        for (let i = e.resultIndex; i < e.results.length; i++) s += e.results[i][0].transcript;
+        let s = '', fin = false;
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+          s += e.results[i][0].transcript;
+          if (e.results[i].isFinal) fin = true;
+        }
         $('q').value = s;
         $('q').style.height = 'auto'; $('q').style.height = Math.min(96, $('q').scrollHeight) + 'px';
+        /* 拿到最终结果 = 说完了 → 立即自动关闭麦克风（修复"语音一旦打开就关不了"） */
+        if (fin) { stopRec(); tip('已识别，可修改后点发送'); }
       };
       rec.start();
     } catch (e) { guide('start-fail'); }
