@@ -184,6 +184,136 @@ const advPass = adv.filter((g) => g.checks.every((c) => c[1])).length
 log(`**进阶1 汇总：${advPass}/${adv.length} 组断言全通过**（未通过就如实标 ❌，不修饰）。`)
 log('')
 
+// ---- 基础1 专测：C 级来源不得作为匹配依据（P0 规则 R1–R4，2026-09-26 新增） ----
+// 赛题基础需求1：其他公开页面可作为**补充线索**，但应注明来源性质及核验情况，
+// **不能将搜索结果摘要直接当作已核实的医院事实**。
+// 本组断言**实时 HTTP 响应的行为**（分区归属与 tier 分布是否一致、同源提示是否按数据触发），
+// 不是断言"文件里有没有某个字符串"：判据全部由当次响应的 hospitals[].tier / hospitals[].url 现推。
+log('## 基础1 专测 · C 级来源不得作为匹配依据（P0 规则 R1–R4 行为断言）')
+log('')
+log('> 规则：只有 **A/B 级**（主管部门·院校·官方媒体·医院官网）可支撑「该院具备该资源」（R1）；')
+log('> C/D 级只能进「📋 其他公开线索」区并标注"未经核实，不构成结论"（R2）；')
+log('> A/B 级为 0 时必须明说「暂未查到可核实的官方信息」+ 官方核实渠道（R3）；')
+log('> 同一 URL 支撑 ≥3 家医院时必须出现「同源提示 · 非官方认定」（R4）。')
+log('')
+
+const p0 = []
+// 切分区段的小工具：从 startMark 切到其后最早出现的任一 endMark
+function sliceBlock(a, startMark, endMarks) {
+  const s = a.indexOf(startMark)
+  if (s < 0) return ''
+  let e = a.length
+  for (const m of endMarks) {
+    const i = a.indexOf(m, s + startMark.length)
+    if (i >= 0 && i < e) e = i
+  }
+  return a.slice(s, e)
+}
+const AFTER_CARD_BLOCKS = ['⚠️ **同源提示**', '【⚠️ 以下来源/医院不在演示范围', '【⚠️ 多院区消歧', '**【来源清单', '**③ 信息依据**']
+
+// 场景①：混合来源（历史实测 A1/B1/C6）——已核实区不许混进 C/D 级，同源提示按数据触发
+{
+  const sid = 'p0-mix-' + Date.now()
+  const q = process.env.P0_MIX_Q || '北京有哪些医院有胸痛中心'
+  const r = await ask(q, sid)
+  const a = String(r.answer || '')
+  const hs = Array.isArray(r.hospitals) ? r.hospitals : []
+  const verifiedBlock = sliceBlock(a, '**✅ 已核实**', ['**📋 其他公开线索**', ...AFTER_CARD_BLOCKS])
+  const clueBlock = sliceBlock(a, '**📋 其他公开线索**', AFTER_CARD_BLOCKS)
+  const nameOf = (h) => h.fullName || h.name
+  const inVerified = hs.filter((h) => verifiedBlock.includes(nameOf(h)))
+  const inClues = hs.filter((h) => clueBlock.includes(nameOf(h)))
+  const cd = hs.filter((h) => h.tier !== 'A' && h.tier !== 'B')
+  // 同源统计：由当次响应现推"哪个 URL 承载了 ≥3 家"
+  const byUrl = new Map()
+  for (const h of hs) { if (!h.url) continue; byUrl.set(h.url, [...(byUrl.get(h.url) || []), h]) }
+  const sameSrc = [...byUrl.values()].filter((l) => l.length >= 3)
+  const checks = [
+    ['回答出现「✅ 已核实」分区（R2）', verifiedBlock.length > 0],
+    ['回答出现「📋 其他公开线索」分区，且标注"未经核实 / 不构成结论"（R2）',
+      clueBlock.length > 0 && /未经核实/.test(clueBlock) && /不构成结论/.test(clueBlock)],
+    [`「✅ 已核实」区内 ${inVerified.length} 家医院 tier 全为 A/B（逐家核对 JSON 字段，R1）`,
+      inVerified.length > 0 && inVerified.every((h) => h.tier === 'A' || h.tier === 'B')],
+    [`C/D 级医院（本次 ${cd.length} 家）**均不得**出现在「✅ 已核实」区（反向断言，R1）`,
+      cd.every((h) => !verifiedBlock.includes(nameOf(h)))],
+    ['「📋 其他公开线索」区内医院 tier 全为 C/D（A/B 级不会被错误降格，R2）',
+      inClues.length > 0 && inClues.every((h) => h.tier === 'C' || h.tier === 'D')],
+    [`同源 ≥3 家（本次实测 ${sameSrc.length} 个 URL）时必须出现「同源提示」且写明「非官方认定」（R4）`,
+      sameSrc.length > 0 ? (/同源提示/.test(a) && /非官方认定/.test(a)) : !/同源提示/.test(a)],
+    ['同源提示点名家数 ≥ 当次实测最大同源家数（提示与数据一致，R4）',
+      sameSrc.length === 0 || sameSrc.every((l) => {
+        const m = a.match(/同源提示[\s\S]{0,80}?\*\*(\d+) 家医院\*\*/)
+        return m ? Number(m[1]) >= l.length : false
+      })],
+  ]
+  p0.push({
+    name: '混合来源场景：已核实区只许 A/B，C/D 只许在线索区，同源必提示', input: q, r, checks,
+    extra: `A/B 级 ${hs.length - cd.length} 家、C/D 级 ${cd.length} 家、同源≥3 的 URL ${sameSrc.length} 个`,
+  })
+}
+
+// 场景②：R3 分支双向不变式 —— A/B=0 必须有"暂未查到"+官方渠道；A/B>0 不得误报
+{
+  const sid = 'p0-r3-' + Date.now()
+  const q = process.env.P0_R3_Q || '北京有哪些医院有针灸科'
+  const r = await ask(q, sid)
+  const a = String(r.answer || '')
+  const hs = Array.isArray(r.hospitals) ? r.hospitals : []
+  const ab = hs.filter((h) => h.tier === 'A' || h.tier === 'B')
+  const hasFallback = /暂未查到可核实的官方信息/.test(a)
+  const hasChannel = /官方核实渠道|医院官网|医院总机|卫生健康主管部门|官方预约平台/.test(a)
+  const checks = ab.length === 0 ? [
+    ['本次实测 A/B 级 = 0 家，R3 分支**被真实触发**', true],
+    ['必须出现「暂未查到可核实的官方信息」（R3）', hasFallback],
+    ['必须给出官方核实渠道（官网/总机/卫生健康主管部门/官方预约平台，R3）', hasChannel],
+    ['无可核实结论时**不得**出现「✅ 已核实」分区（不许伪装，R1/R2）', !/✅ 已核实/.test(a)],
+  ] : [
+    [`本次实测 A/B 级 = ${ab.length} 家，R3 分支未触发 → 改验反向不变式`, true],
+    ['有 A/B 级支撑时**不得**出现「暂未查到可核实的官方信息」（不误报，R3 反向）', !hasFallback],
+    ['必须出现「✅ 已核实」分区（R2）', /✅ 已核实/.test(a)],
+    ['「✅ 已核实」区内医院 tier 全为 A/B（R1）',
+      (() => { const vb = sliceBlock(a, '**✅ 已核实**', ['**📋 其他公开线索**', ...AFTER_CARD_BLOCKS]); const iv = hs.filter((h) => vb.includes(h.fullName || h.name)); return iv.length > 0 && iv.every((h) => h.tier === 'A' || h.tier === 'B') })()],
+  ]
+  p0.push({
+    name: 'R3 分支（A/B 级为 0 的正确拒答）双向不变式', input: q, r, checks,
+    extra: ab.length === 0 ? '本次触发 A/B=0 分支' : `本次 A/B 级 ${ab.length} 家，正向分支未触发（已验反向不变式）`,
+  })
+}
+
+for (const g of p0) {
+  const pass = g.checks.every((c) => c[1])
+  log(`### ${g.name}`)
+  log('')
+  log(`- **输入**：\`${g.input}\``)
+  log(`- **实际**：\`status=${g.r.status}\`、检索词 \`${g.r.query}\`、识别医院 ${(g.r.hospitals || []).length} 家${g.extra ? '、' + g.extra : ''}`)
+  log(`- **判定**：${pass ? '✅ 通过' : '❌ 未通过'}`)
+  log('')
+  log('| 断言 | 结果 |')
+  log('|---|---|')
+  for (const [label, ok] of g.checks) log(`| ${label} | ${ok ? '✅' : '❌'} |`)
+  log('')
+  // 摘录分区与同源提示的真实片段
+  const lines = String(g.r.answer || '').split('\n')
+  const pick = []
+  lines.forEach((l, i) => {
+    if (/✅ 已核实|其他公开线索|暂未查到可核实的官方信息|官方核实渠道|同源提示/.test(l)) {
+      pick.push(...lines.slice(i, Math.min(lines.length, i + 3)))
+      pick.push('……')
+    }
+  })
+  log('<details><summary>展开回答中与本组相关的真实片段</summary>')
+  log('')
+  log('```text')
+  log(pick.length ? [...new Set(pick)].join('\n') : '（本次回答未命中相关小节）')
+  log('```')
+  log('')
+  log('</details>')
+  log('')
+}
+const p0Pass = p0.filter((g) => g.checks.every((c) => c[1])).length
+log(`**基础1 专测汇总：${p0Pass}/${p0.length} 组断言全通过**（未通过的断言如实标注，不修饰）。`)
+log('')
+
 // ---- 进阶3：缓存 / 限流 / 历史 / 成本 ----
 log('## 进阶3 · 会话持久化与运行保障')
 log('')
@@ -291,11 +421,11 @@ log('')
 
 log('### 进阶4 · 小程序实际集成')
 log('')
-log('- ⛔ **本作品不做真实小程序接入**（决策 D-018，2026-09-25 甲方定）。')
+log('- ⛔ **涉及医疗备案，相关小程序只做演示、没有做实际接入**（决策 D-018，2026-09-25 甲方定）。')
 log('  赛题原文：「接入在运营的小程序以取得平台授权和必要资料为前提，**不作为所有选手的强制要求**」。')
 log('  原因：本作品面向**医疗就医流程**，医疗类小程序接入涉及**备案与合规**；在未取得平台授权与必要资料的前提下，')
 log('  为一个赛题已明确标注为**非强制**的加分项引入合规风险，不符合本作品"可核验、可交付、不越线"的设计原则。')
-log('  **替代做法（可验证）**：① 手机端实测演示界面（390px 视口 + iPhone 真机截图，见 `05_过程记录/截图证据/`）；')
+log('  **替代做法（可验证）**：① 手机端演示界面（患者版响应式适配，**代码级证据**见《进阶项实测证据_手机适配.md》；视觉截图按《手机实测截图-采集清单》补采中，**不拿代码级证据冒充截图**）；')
 log('  ② `README.md` 第八节的接口约定与一次从请求到回答的完整调用；③ `/mini.html` 模拟调用方（明确标注模拟范围）。')
 log('- 已提供 `/mini.html` 作为**小程序形态的模拟调用方**，并明确标注模拟范围。')
 log('')
@@ -310,7 +440,7 @@ log('| 进阶1 过期提醒（>180 天） | ✅ 已做 | 本文《进阶1》过�
 log('| 进阶2 手机适配 | 🟠 **代码级证据已做，视觉截图未做**（本机无浏览器） | 《进阶项实测证据_手机适配.md》 |')
 log('| 进阶2 常用问题入口 / 条件筛选 / 结果比较 | ✅ 已做 | 本文《进阶2》小节；对比表已改为**地区/院区/公开资源与服务信息**三维度 |')
 log('| 进阶3 会话持久化与运行保障 | ✅ 已做 | 本文《进阶3》各小节 |')
-log('| 进阶4 小程序实际集成 | ⛔ **本作品不做真实接入**（D-018：医疗类接入涉及备案合规，且赛题标注"不作为所有选手的强制要求"） | 替代：手机端实测演示界面 + README §八 接口约定与完整调用 + `/mini.html` 模拟调用方 |')
+log('| 进阶4 小程序实际集成 | ⛔ **涉及医疗备案，相关小程序只做演示、没有做实际接入**（D-018：医疗类接入涉及备案合规，且赛题标注"不作为所有选手的强制要求"） | 替代：手机端演示界面（代码级适配证据，视觉截图待补）+ README §八 接口约定与完整调用 + `/mini.html` 模拟调用方 |')
 log('')
 
 const md = out.join('\n')
