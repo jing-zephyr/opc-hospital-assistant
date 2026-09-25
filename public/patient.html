@@ -77,11 +77,23 @@
   .res{margin-top:8px}
   .stab{display:inline-block;font-size:11.5px;border-radius:6px;padding:2px 8px;margin:0 6px 7px 0;
     background:var(--b50);color:var(--b700);border:1px solid var(--line)}
-  .hrow{display:flex;align-items:flex-start;gap:8px;padding:8px 0;border-top:1px dashed #e6f0f9;font-size:14px}
+  .hrow{display:flex;align-items:flex-start;gap:8px;padding:9px 0;border-top:1px dashed #e6f0f9;font-size:14px;cursor:pointer}
   .hrow:first-child{border-top:0}
+  .hrow:hover{background:#f7fbff}
   .hrow .i{flex:0 0 20px;height:20px;border-radius:50%;background:var(--b100);color:var(--b700);
     font-size:11.5px;display:flex;align-items:center;justify-content:center;margin-top:1px}
   .hrow .nm{flex:1;color:var(--b900);line-height:1.5}
+  .hrow .chev{flex:0 0 auto;font-size:17px;color:#a8c8e6;line-height:1;transition:transform .15s}
+  .hrow.open .chev{transform:rotate(90deg)}
+  /* 医院详情（点开医院名后展开） */
+  .hdetail{margin:2px 0 6px 28px;padding:9px 11px;background:#f7fbff;border:1px solid #e2eefa;border-radius:10px}
+  .drow{display:flex;gap:8px;font-size:13px;line-height:1.65;margin-bottom:5px}
+  .drow:last-of-type{margin-bottom:0}
+  .drow .dk{flex:0 0 34px;color:#93a9bd;font-size:12px;padding-top:1px}
+  .drow .dv{flex:1;color:#2a4a6b;word-break:break-word}
+  .drow .dv a{color:var(--b600);text-decoration:none;font-weight:600}
+  .drow .dv .dim{color:#8fa6ba;font-size:11.5px}
+  .dtip{font-size:11.5px;color:#8fa6ba;line-height:1.6;margin-top:6px}
   .tg{font-size:10.5px;border-radius:5px;padding:1px 6px;margin-left:5px;white-space:nowrap}
   .tA{background:#e7f6ef;color:#146c52;border:1px solid #a8ddc7}
   .tB{background:#e8f2fb;color:#245b8c;border:1px solid #b6d6f0}
@@ -259,11 +271,17 @@
         不做诊断、治疗、用药建议；不承诺号源；不提供鉴定估价。
         <b>急症请立即拨打 120</b>，不要依赖本工具。
 
-        <h4>来源怎么分级</h4>
-        <b>A 级 · 已核实</b>（政府 / 卫健委 / 医学院校）｜
-        <b>B 级 · 官网</b>（医院或机构官网）｜
-        <b>C 级 · 待核实</b>（聚合站等，仅作线索）。<br>
-        <b>未查到 ≠ 没有。</b>
+        <h4>来源怎么看</h4>
+        每条信息都标注**来源**，分三种：<br>
+        <b>官方来源</b>（政府 / 卫生健康主管部门 / 医学院校）｜
+        <b>医院官网</b>（医院或机构官方页面）｜
+        <b>待核实</b>（聚合站等，仅作线索）。<br>
+        <b>未查到 ≠ 没有。</b>查不到时我们会给官方核实渠道，不会替您下结论。
+
+        <h4>关于检索过程</h4>
+        本页是给您（患者 / 家属）看的，所以不放技术细节。<br>
+        想看到**本次用了哪些检索词、命中了哪些来源、来源如何分级**，请打开
+        <a href="/index.html">完整版</a> —— 那里有完整的检索过程与运行指标。
 
         <h4>想看得更深</h4>
         <a href="/index.html">→ 打开完整版（含三角色视角、运行指标、来源分级与检索过程）</a>
@@ -440,7 +458,26 @@ function addBot(html, domLabel) {
 function conv() { return $('convSec'); }
 
 /* ---------- 结果渲染（患者版：先给干净结论，来源默认折叠） ---------- */
-const TIER = { A: ['A级·已核实', 'tA'], B: ['B级·官网', 'tB'], C: ['C级·待核实', 'tC'], D: ['C级·待核实', 'tC'] };
+/* 来源性质：给患者看**人话**，不显示 A/B/C 代号
+   （代号是本系统内部口径，留给完整版 /index.html 与技术文档 —— 见《界面信息分层规范》）
+   A = 政府 / 卫生健康主管部门 / 医学院校 → 「官方来源」
+   B = 医院或机构官网                     → 「医院官网」
+   C/D = 聚合站 / 文库 / 导医平台等        → 「待核实」 */
+const TIER = { A: ['官方来源', 'tA'], B: ['医院官网', 'tB'], C: ['待核实', 'tC'], D: ['待核实', 'tC'] };
+
+/* 患者界面**不显示**系统内部信息（检索关键词 / 通道命中 / 去重条数）。
+   这类信息是给评委看"真的在联网检索"的，放在完整版 /index.html 与测试记录里。
+   这里把后端 answer 文本中的这些片段剔除掉。 */
+function cleanAnswer(s) {
+  return String(s == null ? '' : s)
+    .replace(/（本次检索关键词：[^）]*）/g, '')
+    .replace(/本次检索关键词：`[^`]*`[^\n]*/g, '')
+    .replace(/[；;]?\s*通道命中：[^\n）]*/g, '')
+    .replace(/[；;]?\s*去重后\s*\d+\s*条/g, '')
+    .replace(/（\s*）/g, '')
+    .replace(/[ \t]+\n/g, '\n')
+    .trim();
+}
 const ST = {
   ok: '✅ 已找到', partial: '⚠️ 仅非权威来源', need_clarify: '❓ 需要补充条件',
   no_result: '⚠️ 未查到（≠ 没有）', refused_medical: '🚫 诊疗问题已婉拒', emergency: '🚨 紧急提示',
@@ -464,18 +501,37 @@ function resultHTML(d) {
   h += '<span class="stab">依据 ' + srcs.length + ' 条</span>';
 
   if (hos.length) {
-    h += hos.slice(0, 8).map((x, i) =>
-      '<div class="hrow"><span class="i">' + (i + 1) + '</span><span class="nm">' + esc(x.name) +
-      (x.category ? '<span class="tg tB">' + esc(x.category) + '</span>' : '') +
-      ((x.campusList || []).length > 1 ? '<span class="tg tA">多院区 ' + x.campusList.length + '</span>' : '') +
-      '</span><span class="tg ' + ((TIER[x.tier] || TIER.C)[1]) + '">' + esc((TIER[x.tier] || TIER.C)[0]) + '</span></div>'
-    ).join('');
+    h += hos.slice(0, 8).map(function (x, i) {
+      const camps = (x.campusList || []);
+      const campusTxt = camps.length > 1
+        ? '多院区（' + camps.length + ' 个）：' + esc(camps.join('、')) +
+          (x.campusMatched ? '<br>本次来源指向：<b>' + esc(x.campusMatched) + '</b>' : '<br>本次来源未明确院区')
+        : camps.length === 1 ? esc(camps[0])
+        : '<span style="color:#8a5a12">来源未明确院区（待核实）</span>';
+      let rows = '';
+      rows += '<div class="drow"><span class="dk">全称</span><span class="dv">' + esc(x.fullName || x.name) + '</span></div>';
+      if ((x.altNames || []).length) rows += '<div class="drow"><span class="dk">又称</span><span class="dv">' + esc(x.altNames.join('、')) + '</span></div>';
+      rows += '<div class="drow"><span class="dk">类别</span><span class="dv">' + esc(x.category || '来源未标明（待核实）') + '</span></div>';
+      rows += '<div class="drow"><span class="dk">地区</span><span class="dv">' + esc(x.region || '来源未标明') + '</span></div>';
+      rows += '<div class="drow"><span class="dk">院区</span><span class="dv">' + campusTxt + '</span></div>';
+      rows += '<div class="drow"><span class="dk">来源</span><span class="dv">' + esc(x.site || '来源未标明') +
+        ' · <a href="' + esc(x.url || '#') + '" target="_blank" rel="noopener noreferrer">打开原文</a><br>' +
+        '<span class="dim">' + esc(String(x.title || '').slice(0, 58)) + '　｜　' +
+        (x.date ? '来源更新时间 ' + esc(String(x.date).slice(0, 10)) : '来源未标注更新时间') + '</span></span></div>';
+      rows += '<div class="dtip">以上为该院<b>公开信息</b>；请以医院官方渠道最新公布为准。不同院区的地址与科室安排不得混用。</div>';
+      return '<div class="hrow" data-hd="' + i + '"><span class="i">' + (i + 1) + '</span><span class="nm">' + esc(x.name) +
+        (x.category ? '<span class="tg tB">' + esc(x.category) + '</span>' : '') +
+        (camps.length > 1 ? '<span class="tg tA">多院区 ' + camps.length + '</span>' : '') +
+        '</span><span class="chev">›</span></div>' +
+        '<div class="hdetail" id="hd' + i + '" style="display:none">' + rows + '</div>';
+    }).join('');
     if (hos.length > 8) h += '<div style="font-size:12px;color:#7b93a9;padding-top:7px">…另有 ' + (hos.length - 8) + ' 家</div>';
+    h += '<div class="dtip" style="padding-top:8px">点医院名可展开该院详情（全称 / 类别 / 院区 / 这条信息的来源）。</div>';
   }
 
   /* 来源默认折叠：患者看到一行小灰字，点开才展开 —— 兼顾"界面干净"与"可核验" */
   h += '<details class="fold"><summary>🔍 依据 ' + srcs.length + ' 条 · 查看来源与完整说明</summary>';
-  h += '<div class="full">' + md(d.answer || '') + '</div>';
+  h += '<div class="full">' + md(cleanAnswer(d.answer)) + '</div>';
   h += srcs.map(s => {
     const t = TIER[s.tier] || TIER.C;
     const upd = s.sourceUpdatedAt ? ('来源更新时间：' + String(s.sourceUpdatedAt).slice(0, 10)) : '来源未标注更新时间';
@@ -525,6 +581,18 @@ async function send(forced) {
   }
 }
 function tip(t, c) { const el = $('tip'); el.textContent = t || ''; el.className = 'tip' + (c ? ' ' + c : ''); }
+
+/* 点医院名 → 展开该院详情（事件委托；对话区每次清空也不影响） */
+$('convSec').addEventListener('click', function (e) {
+  let t = e.target;
+  while (t && t !== this && !(t.hasAttribute && t.hasAttribute('data-hd'))) t = t.parentNode;
+  if (!t || t === this) return;
+  const box = $('hd' + t.getAttribute('data-hd'));
+  if (!box) return;
+  const wasOpen = box.style.display !== 'none';
+  box.style.display = wasOpen ? 'none' : '';
+  t.className = 'hrow' + (wasOpen ? '' : ' open');
+});
 
 $('send').onclick = () => send();
 $('q').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } });
