@@ -1,0 +1,10 @@
+#!/bin/sh
+# git pre-push 钩子入口（真正的逻辑在同目录 pre-push.mjs）
+# 用「树里有没有这个文件」当老历史的判据，所以钩子必须入库。
+# 启用方式（每个克隆跑一次）：
+#     git config core.hooksPath .githooks
+if command -v node >/dev/null 2>&1; then
+  exec node "$(git rev-parse --show-toplevel)/.githooks/pre-push.mjs"
+fi
+echo "  ⚠️  pre-push：本机找不到 node，跳过脱敏闸（建议装 node 后再推）" >&2
+exit 0
