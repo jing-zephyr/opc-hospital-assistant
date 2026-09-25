@@ -83,10 +83,17 @@ if (env.TAVILY_API_KEY) wanted.TAVILY_API_KEY = env.TAVILY_API_KEY
 // 评审期额度保障：线上检索缓存拉到 24 小时（评委重复问相似问题不重复烧额度）；本地默认仍是 10 分钟
 wanted.OPC_CACHE_TTL_MIN = env.OPC_CACHE_TTL_MIN || '1440'
 for (const [k, v] of Object.entries(wanted)) {
-  const r = await api(`/accounts/${site.account_slug}/env?site_id=${site.id}`, {
+  let r = await api(`/accounts/${site.account_slug}/env?site_id=${site.id}`, {
     method: 'POST',
     body: JSON.stringify([{ key: k, values: [{ value: v, context: 'all' }] }]),
   })
+  // 变量已存在时 POST 返回 422 → 转 PATCH 更新（明天换 key/加 key 必须走这里，否则新值推不上去）
+  if (r.status === 422) {
+    r = await api(`/accounts/${site.account_slug}/env/${encodeURIComponent(k)}?site_id=${site.id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ value: v, context: 'all' }),
+    })
+  }
   console.log(`  ${r.ok ? '✅' : '⚠️'} ${k}  (HTTP ${r.status})`)
 }
 if (!Object.keys(wanted).length) console.log('  ⚠️ 本地没读到密钥，跳过（部署后需手动配）')
