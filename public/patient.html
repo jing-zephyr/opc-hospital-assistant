@@ -227,6 +227,11 @@
     <div class="more" id="btnMore">🔄 换一批</div>
   </div>
 
+  <!-- 完整版入口前置到首屏：原来只藏在右上角 ⋯ 弹窗里，实测用户找不到 -->
+  <div style="text-align:center;padding:2px 0 14px">
+    <a href="/index.html" style="font-size:12.5px;color:#5b7a97;text-decoration:none">查看检索过程与来源分级（完整版）›</a>
+  </div>
+
   <div class="dombar" id="dombar" style="display:none"></div>
 
 </div>
@@ -267,34 +272,30 @@
     </div>
     <div class="bd">
       <div class="about">
-        <div class="q">这是一台「<b>可核验的诚实机器</b>」，不是一台「流畅的胡说机器」。</div>
+        <div class="q">您好，我是您的就诊小助手。医院的科室、医生出诊、挂号入口、地址电话这类<b>公开信息</b>，我帮您查、帮您核对来源；查不到也会如实告诉您，并指给您下一步核实的路。</div>
 
-        <h4>它能做什么</h4>
-        联网检索各医院<b>公开</b>的资源与便民信息（科室、医生公开信息、挂号入口、地址等），
-        <b>每条结论都能点回来源</b>；查不到就如实说"未查到"，<b>不断言"没有"</b>。
+        <h4>我能帮您做什么</h4>
+        查科室与医生出诊信息、挂号与预约入口、医院地址与联系方式的<b>官方公布渠道</b>。
+        每条信息都附出处，您可以点开核对原文；暂时查不到时，我会给您官方核实渠道，不会替您下结论。
 
-        <h4>它不做什么</h4>
-        不做诊断、治疗、用药建议；不承诺号源；不提供鉴定估价。
-        <b>急症请立即拨打 120</b>，不要依赖本工具。
+        <h4>请您注意</h4>
+        我不能做诊断、不能提供用药建议，也无法保证号源。
+        就诊前请以医院官方渠道（官网、官方公众号、医院总机）的最新公布为准。<br>
+        <b>如遇急症，请立即拨打 120</b>，不要等待网上查询。
 
-        <h4>来源怎么看</h4>
-        每条信息都标注**来源**，分三种：<br>
+        <h4>信息来源怎么看</h4>
+        每条信息都标注来源，分三种：<br>
         <b>官方来源</b>（政府 / 卫生健康主管部门 / 医学院校）｜
         <b>医院官网</b>（医院或机构官方页面）｜
-        <b>待核实</b>（聚合站等，仅作线索）。<br>
-        <b>未查到 ≠ 没有。</b>查不到时我们会给官方核实渠道，不会替您下结论。
-
-        <h4>关于检索过程</h4>
-        本页是给您（患者 / 家属）看的，所以不放技术细节。<br>
-        想看到**本次用了哪些检索词、命中了哪些来源、来源如何分级**，请打开
-        <a href="/index.html">完整版</a> —— 那里有完整的检索过程与运行指标。
-
-        <h4>想看得更深</h4>
-        <a href="/index.html">→ 打开完整版（含三角色视角、运行指标、来源分级与检索过程）</a>
+        <b>待核实线索</b>（聚合站等，仅作参考）。<br>
+        标注「待核实」的内容，建议就诊前通过电话或官网再确认一次。
 
         <h4>关于隐私</h4>
-        本工具<b>不采集任何身份信息</b>（无需登录、不落病历）。<br>
-        「最近对话」只保存在<b>您这台设备本机</b>，不上传服务器；您可以随时单条删除或一键清空。
+        本工具<b>不采集任何身份信息</b>（无需登录、不留病历）。<br>
+        「最近对话」只保存在<b>您这台设备本机</b>，您可以随时单条删除或一键清空。
+
+        <h4>想了解更多</h4>
+        <a href="/index.html">查看检索过程与来源分级（完整版）›</a>
       </div>
     </div>
   </div>
@@ -495,6 +496,9 @@ const ST = {
   demo_no_fixture: '📦 演示模式·无内置样例',
 };
 
+/* 详情面板 DOM id 全局累加、跨气泡不重置：否则每个气泡都从 hd0 起，id 重复，
+   getElementById 永远命中**第一个**气泡里的面板 —— 实测表现为"点新回答里的医院没反应，旧气泡的反而展开"。 */
+let HID_SEQ = 0;
 function resultHTML(d) {
   const srcs = d.sources || [];
   const hos  = d.hospitals || [];
@@ -516,7 +520,7 @@ function resultHTML(d) {
 
   function hosRow(x) {
     const camps = (x.campusList || []);
-    const id = hid++;
+    const id = HID_SEQ++;
     const campusTxt = camps.length > 1
       ? '多院区（' + camps.length + ' 个）：' + esc(camps.join('、')) +
         (x.campusMatched ? '<br>本次来源指向：<b>' + esc(x.campusMatched) + '</b>' : '<br>本次来源未明确院区')
@@ -532,12 +536,18 @@ function resultHTML(d) {
     if (x.officialSite) rows += '<div class="drow"><span class="dk">官网</span><span class="dv">' +
       '<a href="https://' + esc(x.officialSite) + '/" target="_blank" rel="noopener noreferrer">' + esc(x.officialSite) + '</a>' +
       '<br><span class="dim">域名已核实可访问 · 预约挂号 / 联系电话 / 地址导航以官网公布为准</span></span></div>';
+    /* 就诊指引（无条件显示）：不含任何该院具体号码/地址（不编造），只给"去哪查、怎么挂"的官方路径。
+       北京 114 是北京市预约挂号统一平台（公开事实，非该院专有信息）；其余城市的院名卡只给公众号+官网路径。 */
+    rows += '<div class="drow"><span class="dk">就诊指引</span><span class="dv">' +
+      '预约挂号：微信搜「<b>' + esc(x.fullName || x.name) + '</b>」，认准<b>认证主体为该院</b>的官方公众号' +
+      ((x.region || '').includes('北京') ? '；也可拨 <b>114</b>（北京市预约挂号统一平台）' : '') + '<br>' +
+      '<span class="dim">地址、科室电话、乘车路线：以该院官网「联系我们 / 就诊指南」页公布为准（本工具不代录号码，避免过时信息误导您）</span></span></div>';
     rows += '<div class="drow"><span class="dk">来源</span><span class="dv">' + esc(x.site || '来源未标明') +
       ' · <a href="' + esc(x.url || '#') + '" target="_blank" rel="noopener noreferrer">打开原文</a><br>' +
       '<span class="dim">' + esc(String(x.title || '').slice(0, 58)) + '　｜　' +
       (x.date ? '来源更新时间 ' + esc(String(x.date).slice(0, 10)) : '来源未标注更新时间') + '</span></span></div>';
     rows += '<div class="dtip">以上为该院<b>公开信息</b>；请以医院官方渠道最新公布为准。不同院区的地址与科室安排不得混用。</div>';
-    return '<div class="hrow" data-hd="' + id + '"><span class="i">' + (id + 1) + '</span><span class="nm">' + esc(x.name) +
+    return '<div class="hrow" data-hd="' + id + '"><span class="i">' + (++hid) + '</span><span class="nm">' + esc(x.name) +
       (x.category ? '<span class="tg tB">' + esc(x.category) + '</span>' : '') +
       (camps.length > 1 ? '<span class="tg tA">多院区 ' + camps.length + '</span>' : '') +
       '</span><span class="chev">›</span></div>' +
