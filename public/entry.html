@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>就诊 AI 问答</title>
+<style>
+  :root{
+    --b900:#123a5e; --b700:#2a5f92; --b600:#3d80c4; --b500:#5aa0dc;
+    --b100:#e6f1fb; --line:#d5e6f6; --ink:#16324c; --muted:#7b93a9;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;min-height:100%;
+    background:linear-gradient(175deg,#f2f8fe,#e4f0fb 45%,#d9eaf9);
+    color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    -webkit-text-size-adjust:100%}
+  .wrap{max-width:520px;margin:0 auto;padding:26px 18px 40px;min-height:100vh;
+    display:flex;flex-direction:column;align-items:center}
+
+  /* 蓝色外框（呼应参考海报） */
+  .poster{width:100%;background:#fff;border:3px solid #2f6fb3;border-radius:20px;
+    padding:26px 20px 22px;box-shadow:0 10px 30px rgba(30,80,130,.13);text-align:center}
+
+  h1{margin:2px 0 10px;font-size:27px;letter-spacing:2px;color:#1f5f9e;font-weight:800}
+  .sub{font-size:14px;line-height:1.85;color:#2f6fb3;letter-spacing:.4px;margin-bottom:20px}
+
+  /* 二维码区 + 蓝色四角框 */
+  .qrbox{position:relative;width:100%;max-width:290px;margin:0 auto;padding:16px}
+  .qrbox .cn{position:absolute;width:26px;height:26px;border:3px solid #2f6fb3}
+  .cn.tl{top:0;left:0;border-right:0;border-bottom:0;border-radius:6px 0 0 0}
+  .cn.tr{top:0;right:0;border-left:0;border-bottom:0;border-radius:0 6px 0 0}
+  .cn.bl{bottom:0;left:0;border-right:0;border-top:0;border-radius:0 0 0 6px}
+  .cn.br{bottom:0;right:0;border-left:0;border-top:0;border-radius:0 0 6px 0}
+  #qrImg{width:100%;aspect-ratio:1/1;display:block;border-radius:8px;object-fit:contain;background:#fff}
+  /* 占位（尚未放入小程序码时显示） */
+  .ph{width:100%;aspect-ratio:1/1;border-radius:10px;border:2px dashed #a9c9e8;background:
+      repeating-linear-gradient(45deg,#f7fbff,#f7fbff 10px,#eef6fd 10px,#eef6fd 20px);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:#7ba6cc;text-align:center;padding:14px}
+  .ph .big{font-size:34px;line-height:1}
+  .ph .t1{font-size:13.5px;font-weight:600;color:#5b8fc0}
+  .ph .t2{font-size:11.5px;line-height:1.7;color:#93b3cf}
+  .ph code{background:#fff;border:1px solid #d9e8f6;border-radius:5px;padding:1px 6px;font-size:11px;color:#5b8fc0}
+
+  .go{display:inline-block;margin-top:22px;background:#2f6fb3;color:#fff;text-decoration:none;
+    font-size:15px;font-weight:600;padding:12px 30px;border-radius:999px;letter-spacing:1px;
+    box-shadow:0 4px 14px rgba(47,111,179,.28)}
+  .go:hover{background:#2a629e}
+  .hint{margin-top:12px;font-size:11.5px;color:var(--muted);line-height:1.75}
+
+  .foot{margin-top:18px;font-size:11.5px;color:#8aa6c0;text-align:center;line-height:1.9;max-width:420px}
+  .foot b{color:#b45309}
+  .links{margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+  .links a{font-size:12px;color:#2f6fb3;text-decoration:none;background:#fff;border:1px solid var(--line);
+    border-radius:999px;padding:6px 14px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="poster">
+    <h1>就诊 AI 问答</h1>
+    <div class="sub">门诊就医指南，<br>就医流程等各类问题咨询</div>
+
+    <div class="qrbox">
+      <span class="cn tl"></span><span class="cn tr"></span><span class="cn bl"></span><span class="cn br"></span>
+      <!-- 放入 public/assets/qrcode.png（小程序码 / 二维码）即自动生效；没有则显示下方占位 -->
+      <img id="qrImg" alt="扫码使用" style="display:none">
+      <div class="ph" id="ph">
+        <div class="big">▣</div>
+        <div class="t1">扫码位（待放入小程序码）</div>
+        <div class="t2">把小程序码图片命名为 <code>qrcode.png</code><br>放到 <code>public/assets/</code> 下即可自动显示</div>
+      </div>
+    </div>
+
+    <a class="go" href="/patient.html">直接开始使用 →</a>
+    <div class="hint">也可以扫码在手机上打开</div>
+  </div>
+
+  <div class="foot">
+    遇到问题直接问就行：挂号、就诊、缴费、取药、查报告、互联网医院……<br>
+    <b>突发急症请立即拨打 120，不要依赖本工具。</b>
+  </div>
+
+  <div class="links">
+    <a href="/patient.html">患者版对话</a>
+    <a href="/index.html">完整版（含来源分级与检索过程）</a>
+    <a href="/mini.html">小程序形态模拟版</a>
+  </div>
+</div>
+
+<script>
+/* 小程序码存在就显示图片，不存在就保留占位（不用改代码，只放文件） */
+(function () {
+  var img = document.getElementById('qrImg'), ph = document.getElementById('ph');
+  img.onload = function () { if (img.naturalWidth > 0) { img.style.display = 'block'; ph.style.display = 'none'; } };
+  img.onerror = function () { img.style.display = 'none'; ph.style.display = 'flex'; };
+  img.src = 'assets/qrcode.png?t=' + Date.now();
+})();
+</script>
+</body>
+</html>

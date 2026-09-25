@@ -50,20 +50,30 @@ export async function verifyDeploy(base = DEFAULT_BASE, opts = {}) {
 
   say(`\n===== 部署后自检 =====\nBASE = ${B}${local ? '（本地模式：跳过 CDN 传播重试）' : ''}\n`)
 
-  // ---- ① 首页必须含 <a href="/mini.html" ----（CDN 传播需要时间 → 重试）
+  // ---- ① 首页 = 患者版（v2 改版：`/` 指向 patient.html）----（CDN 传播需要时间 → 重试）
+  const HOME_MARK = 'AI 就医助手'
   let home = null
   let homeOk = false
   let lastAge = ''
   for (let i = 1; i <= attempts; i++) {
     home = await getText(B + '/?_=' + Date.now())
     lastAge = String(home.headers.get('age') ?? '-')
-    homeOk = home.status === 200 && home.text.includes('<a href="/mini.html"')
+    homeOk = home.status === 200 && home.text.includes(HOME_MARK)
     if (homeOk) break
     if (i < attempts) { say(`  … 首页尚未就绪/仍是旧版（HTTP ${home.status}，age=${lastAge}）第 ${i}/${attempts} 次，${waitMs / 1000}s 后重试`); await sleep(waitMs) }
   }
-  const topnav = (home.text.match(/<div class="topnav">[\s\S]{0,240}?<\/div>/) || [''])[0]
-  check(homeOk, '① 首页 200 且含 <a href="/mini.html"（P1 入口链接在线上源码里）',
-    `HTTP ${home.status} len=${home.text.length} age=${lastAge}${homeOk ? '' : ' 实际入口=' + JSON.stringify(topnav)}`)
+  check(homeOk, `① 首页 200 且为患者版（含「${HOME_MARK}」；v2 后 / 指向 patient.html）`,
+    `HTTP ${home.status} len=${home.text.length} age=${lastAge}`)
+
+  // ---- ①b/①c 另外两个入口也必须在线（改版最容易漏的就是"老入口掉了"）----
+  const entry = await getText(B + '/entry.html')
+  check(entry.status === 200 && entry.text.includes('就诊 AI 问答') && entry.text.includes('qrcode.png'),
+    '①b /entry.html 入口海报页可访问（含「就诊 AI 问答」+ 二维码位）',
+    `HTTP ${entry.status} len=${entry.text.length} 含标题=${entry.text.includes('就诊 AI 问答')} 含二维码位=${entry.text.includes('qrcode.png')}`)
+  const tech = await getText(B + '/index.html')
+  check(tech.status === 200 && tech.text.includes('<a href="/mini.html"'),
+    '①c /index.html 完整版可访问，且 <a href="/mini.html"> 入口仍在线上源码里',
+    `HTTP ${tech.status} len=${tech.text.length} 含 mini 入口=${tech.text.includes('<a href="/mini.html"')}`)
 
   // ---- ② /mini.html 200 ----
   const mini = await getText(B + '/mini.html')

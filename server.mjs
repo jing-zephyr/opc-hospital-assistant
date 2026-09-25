@@ -86,7 +86,8 @@ const server = createServer(async (req, res) => {
         contextNotice: CONTEXT_NOTICE,
       })
     }
-    const rel = url.pathname === '/' ? '/index.html' : url.pathname
+    // ⭐ 首页 = 患者版对话页（便民视角）；完整版留在 /index.html，入口海报在 /entry.html
+    const rel = url.pathname === '/' ? '/patient.html' : url.pathname
     const file = resolve(join(ROOT, rel))
     if (!file.startsWith(ROOT)) { res.writeHead(403); return res.end('forbidden') }
     const buf = await readFile(file)

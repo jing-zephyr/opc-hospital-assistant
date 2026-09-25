@@ -19,6 +19,15 @@
   to = "/mini.html"
   status = 200
 
+# ⭐ 首页 = 患者版对话页（便民视角）。
+#    完整版（三角色视角 / 运行指标 / 来源分级 / 检索过程）保留在 /index.html，
+#    从患者版右上「⋯ → 关于本工具」进入。入口海报页在 /entry.html（放小程序码用）。
+[[redirects]]
+  from = "/"
+  to = "/patient.html"
+  status = 200
+  force = true
+
 # 小程序/网页统一接口 → Serverless 函数
 [[redirects]]
   from = "/api/chat"
