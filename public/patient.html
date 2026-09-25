@@ -94,6 +94,10 @@
   .drow .dv a{color:var(--b600);text-decoration:none;font-weight:600}
   .drow .dv .dim{color:#8fa6ba;font-size:11.5px}
   .dtip{font-size:11.5px;color:#8fa6ba;line-height:1.6;margin-top:6px}
+  /* 结果分区标题：已核实 / 其他公开线索 */
+  .grp{font-size:12.5px;font-weight:600;padding:7px 0 2px}
+  .grp.ok{color:#146c52}
+  .grp.warn{color:#8a5a12}
   .tg{font-size:10.5px;border-radius:5px;padding:1px 6px;margin-left:5px;white-space:nowrap}
   .tA{background:#e7f6ef;color:#146c52;border:1px solid #a8ddc7}
   .tB{background:#e8f2fb;color:#245b8c;border:1px solid #b6d6f0}
@@ -500,34 +504,65 @@ function resultHTML(d) {
   if (hos.length) h += '<span class="stab">共 ' + hos.length + ' 家</span>';
   h += '<span class="stab">依据 ' + srcs.length + ' 条</span>';
 
-  if (hos.length) {
-    h += hos.slice(0, 8).map(function (x, i) {
-      const camps = (x.campusList || []);
-      const campusTxt = camps.length > 1
-        ? '多院区（' + camps.length + ' 个）：' + esc(camps.join('、')) +
-          (x.campusMatched ? '<br>本次来源指向：<b>' + esc(x.campusMatched) + '</b>' : '<br>本次来源未明确院区')
-        : camps.length === 1 ? esc(camps[0])
-        : '<span style="color:#8a5a12">来源未明确院区（待核实）</span>';
-      let rows = '';
-      rows += '<div class="drow"><span class="dk">全称</span><span class="dv">' + esc(x.fullName || x.name) + '</span></div>';
-      if ((x.altNames || []).length) rows += '<div class="drow"><span class="dk">又称</span><span class="dv">' + esc(x.altNames.join('、')) + '</span></div>';
-      rows += '<div class="drow"><span class="dk">类别</span><span class="dv">' + esc(x.category || '来源未标明（待核实）') + '</span></div>';
-      rows += '<div class="drow"><span class="dk">地区</span><span class="dv">' + esc(x.region || '来源未标明') + '</span></div>';
-      rows += '<div class="drow"><span class="dk">院区</span><span class="dv">' + campusTxt + '</span></div>';
-      rows += '<div class="drow"><span class="dk">来源</span><span class="dv">' + esc(x.site || '来源未标明') +
-        ' · <a href="' + esc(x.url || '#') + '" target="_blank" rel="noopener noreferrer">打开原文</a><br>' +
-        '<span class="dim">' + esc(String(x.title || '').slice(0, 58)) + '　｜　' +
-        (x.date ? '来源更新时间 ' + esc(String(x.date).slice(0, 10)) : '来源未标注更新时间') + '</span></span></div>';
-      rows += '<div class="dtip">以上为该院<b>公开信息</b>；请以医院官方渠道最新公布为准。不同院区的地址与科室安排不得混用。</div>';
-      return '<div class="hrow" data-hd="' + i + '"><span class="i">' + (i + 1) + '</span><span class="nm">' + esc(x.name) +
-        (x.category ? '<span class="tg tB">' + esc(x.category) + '</span>' : '') +
-        (camps.length > 1 ? '<span class="tg tA">多院区 ' + camps.length + '</span>' : '') +
-        '</span><span class="chev">›</span></div>' +
-        '<div class="hdetail" id="hd' + i + '" style="display:none">' + rows + '</div>';
-    }).join('');
-    if (hos.length > 8) h += '<div style="font-size:12px;color:#7b93a9;padding-top:7px">…另有 ' + (hos.length - 8) + ' 家</div>';
-    h += '<div class="dtip" style="padding-top:8px">点医院名可展开该院详情（全称 / 类别 / 院区 / 这条信息的来源）。</div>';
+  /* ⭐ 结果**按来源级别分区** —— 依据赛题原文：
+     「不能将搜索结果摘要直接当作已核实的医院事实」「其他公开页面可作为补充线索，但应注明来源性质及核验情况」
+     A/B 级（政府·卫生健康主管部门·院校·医院/机构官网）＝「已核实」→ 可作结论
+     C/D 级（聚合站·文库·导医平台）＝「其他公开线索」→ **未经核实，不构成结论**，默认折叠 */
+  const confirmed = hos.filter(function (x) { return x.tier === 'A' || x.tier === 'B'; });
+  const leads = hos.filter(function (x) { return x.tier !== 'A' && x.tier !== 'B'; });
+  let hid = 0;
+
+  function hosRow(x) {
+    const camps = (x.campusList || []);
+    const id = hid++;
+    const campusTxt = camps.length > 1
+      ? '多院区（' + camps.length + ' 个）：' + esc(camps.join('、')) +
+        (x.campusMatched ? '<br>本次来源指向：<b>' + esc(x.campusMatched) + '</b>' : '<br>本次来源未明确院区')
+      : camps.length === 1 ? esc(camps[0])
+      : '<span style="color:#8a5a12">来源未明确院区（待核实）</span>';
+    let rows = '';
+    rows += '<div class="drow"><span class="dk">全称</span><span class="dv">' + esc(x.fullName || x.name) + '</span></div>';
+    if ((x.altNames || []).length) rows += '<div class="drow"><span class="dk">又称</span><span class="dv">' + esc(x.altNames.join('、')) + '</span></div>';
+    rows += '<div class="drow"><span class="dk">类别</span><span class="dv">' + esc(x.category || '来源未标明（待核实）') + '</span></div>';
+    rows += '<div class="drow"><span class="dk">地区</span><span class="dv">' + esc(x.region || '来源未标明') + '</span></div>';
+    rows += '<div class="drow"><span class="dk">院区</span><span class="dv">' + campusTxt + '</span></div>';
+    rows += '<div class="drow"><span class="dk">来源</span><span class="dv">' + esc(x.site || '来源未标明') +
+      ' · <a href="' + esc(x.url || '#') + '" target="_blank" rel="noopener noreferrer">打开原文</a><br>' +
+      '<span class="dim">' + esc(String(x.title || '').slice(0, 58)) + '　｜　' +
+      (x.date ? '来源更新时间 ' + esc(String(x.date).slice(0, 10)) : '来源未标注更新时间') + '</span></span></div>';
+    rows += '<div class="dtip">以上为该院<b>公开信息</b>；请以医院官方渠道最新公布为准。不同院区的地址与科室安排不得混用。</div>';
+    return '<div class="hrow" data-hd="' + id + '"><span class="i">' + (id + 1) + '</span><span class="nm">' + esc(x.name) +
+      (x.category ? '<span class="tg tB">' + esc(x.category) + '</span>' : '') +
+      (camps.length > 1 ? '<span class="tg tA">多院区 ' + camps.length + '</span>' : '') +
+      '</span><span class="chev">›</span></div>' +
+      '<div class="hdetail" id="hd' + id + '" style="display:none">' + rows + '</div>';
   }
+
+  if (confirmed.length) {
+    h += '<div class="grp ok">✅ 已核实（官方来源 / 医院官网）</div>';
+    h += confirmed.slice(0, 8).map(hosRow).join('');
+    if (confirmed.length > 8) h += '<div class="dtip">…另有 ' + (confirmed.length - 8) + ' 家</div>';
+  } else if (hos.length) {
+    h += '<div class="grp warn">⚠️ 暂未查到可核实的官方信息</div>' +
+      '<div class="dtip" style="padding:0 0 8px">本次**没有**在卫生健康主管部门、医院官网等权威渠道查到可核实的匹配信息。' +
+      '请通过<b>医院官方网站 / 医院总机 / 当地卫生健康委官网</b>核实 —— <b>不要仅凭第三方页面下结论</b>。</div>';
+  }
+
+  if (leads.length) {
+    h += '<details class="fold"><summary>📋 其他公开线索 ' + leads.length + ' 条（未经核实，仅供参考，不构成结论）</summary>';
+    const bySite = {};
+    leads.forEach(function (x) { const k = x.site || '（未知来源）'; bySite[k] = (bySite[k] || 0) + 1; });
+    const topSite = Object.keys(bySite).sort(function (a, b) { return bySite[b] - bySite[a]; })[0];
+    if (topSite && bySite[topSite] >= 3) {
+      h += '<div class="dtip" style="color:#8a5a12;padding:7px 0">⚠️ 以下 <b>' + bySite[topSite] + ' 条来自同一个来源</b>（' +
+        esc(topSite) + '）—— 属媒体 / 聚合站内容，<b>不是官方认定</b>，不能据此断定医院具备该资源。</div>';
+    }
+    h += leads.slice(0, 8).map(hosRow).join('');
+    if (leads.length > 8) h += '<div class="dtip">…另有 ' + (leads.length - 8) + ' 条</div>';
+    h += '</details>';
+  }
+
+  if (hos.length) h += '<div class="dtip" style="padding-top:8px">点医院名可展开该院详情（全称 / 类别 / 院区 / 这条信息的来源）。</div>';
 
   /* 来源默认折叠：患者看到一行小灰字，点开才展开 —— 兼顾"界面干净"与"可核验" */
   h += '<details class="fold"><summary>🔍 依据 ' + srcs.length + ' 条 · 查看来源与完整说明</summary>';
