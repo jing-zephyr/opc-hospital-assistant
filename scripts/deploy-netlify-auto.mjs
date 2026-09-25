@@ -80,6 +80,8 @@ console.log('\n[2/6] 设置环境变量（BOCHA / TAVILY）…')
 const wanted = {}
 if (env.BOCHA_API_KEY) wanted.BOCHA_API_KEY = env.BOCHA_API_KEY
 if (env.TAVILY_API_KEY) wanted.TAVILY_API_KEY = env.TAVILY_API_KEY
+// 评审期额度保障：线上检索缓存拉到 24 小时（评委重复问相似问题不重复烧额度）；本地默认仍是 10 分钟
+wanted.OPC_CACHE_TTL_MIN = env.OPC_CACHE_TTL_MIN || '1440'
 for (const [k, v] of Object.entries(wanted)) {
   const r = await api(`/accounts/${site.account_slug}/env?site_id=${site.id}`, {
     method: 'POST',

@@ -45,7 +45,7 @@ console.log('博查 key:', mask(env.BOCHA_API_KEY))
 console.log('Tavily key:', mask(env.TAVILY_API_KEY))
 
 async function bocha(q) {
-  const key = env.BOCHA_API_KEY
+  const key = String(env.BOCHA_API_KEY || '').split(',')[0].trim()   // 多 key 配置时测第一把
   if (!key) return { skipped: 'BOCHA_API_KEY 未配置' }
   try {
     const r = await fetch('https://api.bochaai.com/v1/web-search', {
@@ -73,7 +73,7 @@ async function bocha(q) {
 }
 
 async function tavily(q) {
-  const key = env.TAVILY_API_KEY
+  const key = String(env.TAVILY_API_KEY || '').split(',')[0].trim()   // 多 key 配置时测第一把
   if (!key) return { skipped: 'TAVILY_API_KEY 未配置' }
   try {
     const r = await fetch('https://api.tavily.com/search', {
