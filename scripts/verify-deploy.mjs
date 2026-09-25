@@ -75,6 +75,17 @@ export async function verifyDeploy(base = DEFAULT_BASE, opts = {}) {
     '①c /index.html 完整版可访问，且 <a href="/mini.html"> 入口仍在线上源码里',
     `HTTP ${tech.status} len=${tech.text.length} 含 mini 入口=${tech.text.includes('<a href="/mini.html"')}`)
 
+  // ---- ①d ⭐ 患者版"点了没反应"防回归 ----
+  // 真实事故（2026-09-25）：对话容器 #convSec 是 display:none，而 send() 里忘了把它显示出来，
+  //   于是请求发出、回答返回，但全部被塞进隐藏容器 —— 用户看到的是"点了没反应、没有输出"。
+  //   ⇒ 用结构断言把它钉死：① 容器存在 ② 在首屏卡片之前 ③ send 里确实会显示它 ④ 卡片有 id。
+  const iConv = home.text.indexOf('id="convSec"')
+  const iCards = home.text.indexOf('id="cards"')
+  const convOk = iConv > -1 && iCards > -1 && iConv < iCards
+    && /convSec'\)\.style\.display\s*=\s*''/.test(home.text)
+  check(convOk, '①d 患者版对话区可用（#convSec 存在且在 #cards 之前，且 send() 会显示它）—— 防"点了没反应"回归',
+    `convSec=${iConv > -1} cards=${iCards > -1} 顺序对=${iConv > -1 && iCards > -1 && iConv < iCards} 会显示=${/convSec'\)\.style\.display\s*=\s*''/.test(home.text)}`)
+
   // ---- ② /mini.html 200 ----
   const mini = await getText(B + '/mini.html')
   check(mini.status === 200 && mini.text.length > 1000, '② /mini.html 可访问且非空',

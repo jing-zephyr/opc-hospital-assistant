@@ -186,7 +186,11 @@
     <div class="bub">您好，我是您的就诊小助手。挂号、缴费、取药、查报告、互联网医院<b>等</b>就医流程上遇到的问题，都可以问我。</div>
   </div>
 
-  <div class="cards">
+  <!-- ⭐ 对话区（v3 修复）：必须放在欢迎语下方，且 send() 里要把它显示出来。
+       原来它在页面最底部且 display:none，导致"点了问题没反应、没有输出"。 -->
+  <div id="convSec" style="display:none"></div>
+
+  <div class="cards" id="cards">
     <div class="dcard" data-dom="门诊指南">
       <div class="ic">📘</div>
       <div class="n">门诊指南</div>
@@ -204,8 +208,6 @@
     <div class="chips" id="chips"></div>
     <div class="more" id="btnMore">🔄 换一批</div>
   </div>
-
-  <div class="sec" id="convSec" style="display:none"></div>
 
   <div class="dombar" id="dombar" style="display:none"></div>
 
@@ -494,6 +496,10 @@ async function send(forced) {
   busy = true;
   $('send').disabled = true;
   $('q').value = ''; $('q').style.height = 'auto';
+  // ⭐ v3 致命修复：进入对话时必须把对话区显示出来、并把首屏两张卡收起来。
+  //   原来漏了这一句 —— 请求发出去了、回答也回来了，但全被塞进 display:none 的容器里，用户"点了没反应"。
+  $('convSec').style.display = '';
+  $('cards').style.display = 'none';
   addMe(msg);
   tip('正在联网检索并核对来源…', 'busy');
   const wait = addBot('<span style="color:#7b93a9">稍等，我正在查…</span>');
@@ -537,6 +543,7 @@ $('btnNew').onclick = async () => {
   if (fresh) saveCtx(Object.assign({}, fresh, { sessionId })); else clearCtx();
   conv().innerHTML = '';
   $('convSec').style.display = 'none';
+  $('cards').style.display = '';
   $('sugSec').style.display = '';
   DOMAIN = ''; sugOffset = 0; renderChips(); renderDomBar();
   tip('已开启一段新的对话');
