@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AI 就医助手</title>
+<title>AI 就诊助手</title>
 <style>
   :root{
     --b900:#123a5e; --b700:#2a5f92; --b600:#3d80c4; --b500:#5aa0dc;
@@ -20,15 +20,15 @@
   .top{display:flex;align-items:center;gap:8px;padding:10px 12px 6px;position:sticky;top:0;
     background:rgba(234,244,253,.94);backdrop-filter:blur(8px);z-index:20}
   .top .x{font-size:20px;color:#5b7a97;width:26px;text-align:center;cursor:pointer;line-height:1}
-  .top .ttl{flex:1;font-size:14.5px;color:var(--b900);font-weight:600;text-align:center}
-  .top .acts{display:flex;gap:6px}
+  .top .ttl{flex:1;font-size:15px;color:var(--b900);font-weight:600;text-align:left;padding-left:2px}
+  .top .acts{display:flex;gap:6px;margin-left:auto}
   .tbtn{font-size:12px;background:#fff;border:1px solid var(--line);color:var(--b700);
     border-radius:999px;padding:5px 10px;cursor:pointer;white-space:nowrap}
   .tbtn:hover{background:var(--b100)}
   .tbtn.more{padding:5px 9px}
 
-  /* 顶部细提示（只留两件事） */
-  .notice{margin:2px 12px 10px;font-size:11.5px;color:#6f8ba3;text-align:center;line-height:1.6}
+  /* 顶部细提示（左对齐，一行放完） */
+  .notice{margin:2px 12px 10px;font-size:11.5px;color:#6f8ba3;line-height:1.7;text-align:left}
   .notice b{color:#b45309}
 
   /* 头像 + 大标题 */
@@ -61,12 +61,17 @@
   /* 常见问题 */
   .sec{padding:0 14px}
   .sec h3{margin:0 0 9px;font-size:14px;color:var(--b900);font-weight:600}
-  .chips{display:flex;flex-direction:column;gap:8px;align-items:flex-start}
-  .chip{font-size:13.5px;background:#fff;border:1px solid #bfdcf5;color:var(--b600);
-    border-radius:999px;padding:9px 15px;cursor:pointer;line-height:1.35;transition:.15s}
+  /* 常见问题：**每条问题一个独立胶囊、整条可点**（右侧带 › 提示可点） */
+  .chips{display:flex;flex-direction:column;gap:8px;align-items:stretch}
+  .chip{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;
+    font-size:13.5px;background:#fff;border:1px solid #bfdcf5;color:var(--b600);
+    border-radius:999px;padding:10px 16px;cursor:pointer;line-height:1.4;transition:.15s;text-align:left}
   .chip:hover{background:var(--b50);border-color:var(--b500)}
+  .chip:active{background:var(--b100);transform:scale(.99)}
+  .chip::after{content:'›';font-size:17px;color:#a8c8e6;line-height:1;flex:0 0 auto}
   .more{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;color:var(--b600);
-    padding:6px 2px;cursor:pointer}
+    padding:8px 2px;cursor:pointer;user-select:none}
+  .more:hover{color:var(--b500)}
 
   /* 结果 */
   .res{margin-top:8px}
@@ -143,6 +148,17 @@
   .about h4:first-child{margin-top:0}
   .about a{color:var(--b600);text-decoration:none;font-weight:600}
   .about .q{background:#f8fbfe;border-left:3px solid var(--b500);padding:8px 11px;border-radius:0 8px 8px 0;margin:8px 0}
+
+  /* 桌面端（PC）适配：内容居中窄栏，底部输入条不横跨整屏 */
+  @media (min-width:601px){
+    body{background:#e9f3fc}
+    .wrap{max-width:600px;padding-bottom:104px}
+    .top{padding-top:16px}
+    .composer{padding:11px 16px 13px}
+    .composer .cwrap{max-width:600px}
+    .bub{font-size:14.5px}
+    .hrow{font-size:14.5px}
+  }
 </style>
 </head>
 <body>
@@ -150,7 +166,7 @@
 
   <div class="top">
     <div class="x" onclick="location.href='entry.html'" title="返回入口页">✕</div>
-    <div class="ttl">就医助手</div>
+    <div class="ttl">AI 就诊助手</div>
     <div class="acts">
       <span class="tbtn" id="btnNew">＋ 新对话</span>
       <span class="tbtn" id="btnHist">🗒 最近对话</span>
@@ -158,16 +174,16 @@
     </div>
   </div>
 
-  <div class="notice">演示范围：<b>北京</b> ｜ 突发急症请立即拨打 <b>120</b></div>
+  <div class="notice">演示范围：<b>北京</b> ｜ 急症请立即拨打 <b>120</b> ｜ 演示模型：<b>DeepSeek V4.1 Flash</b></div>
 
   <div class="hero">
     <div class="av" id="avatarBig"></div>
-    <h1>AI 就医助手</h1>
+    <h1>AI 就诊助手</h1>
   </div>
 
   <div class="row" id="welcomeRow">
     <div class="av2" id="avatarSmall"></div>
-    <div class="bub">您好，我是您的就医小助手。挂号、缴费、取药、查报告、互联网医院……就医流程上遇到的问题，都可以问我。</div>
+    <div class="bub">您好，我是您的就诊小助手。挂号、缴费、取药、查报告、互联网医院<b>等</b>就医流程上遇到的问题，都可以问我。</div>
   </div>
 
   <div class="cards">
@@ -197,7 +213,13 @@
 
 <div class="composer">
   <div class="cwrap">
-    <div class="mic" id="mic" title="语音输入">🎤</div>
+    <div class="mic" id="mic" title="点击说话（语音输入）">
+      <svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true">
+        <g stroke="currentColor" stroke-width="2.1" stroke-linecap="round" fill="none">
+          <path d="M4 10.5v3"/><path d="M8 7.5v9"/><path d="M12 5.2v13.6"/><path d="M16 7.5v9"/><path d="M20 10.5v3"/>
+        </g>
+      </svg>
+    </div>
     <textarea id="q" rows="1" placeholder="请问您想咨询什么问题？"></textarea>
     <button class="send" id="send">发送</button>
   </div>
@@ -233,7 +255,7 @@
 
         <h4>它不做什么</h4>
         不做诊断、治疗、用药建议；不承诺号源；不提供鉴定估价。
-        <b>突发急症请立即拨打 120</b>，不要依赖本工具。
+        <b>急症请立即拨打 120</b>，不要依赖本工具。
 
         <h4>来源怎么分级</h4>
         <b>A 级 · 已核实</b>（政府 / 卫健委 / 医学院校）｜
@@ -254,7 +276,7 @@
 
 <script>
 /* ============================================================
-   AI 就医助手 · 患者端（面向普通患者 / 家属的极简对话层）
+   AI 就诊助手 · 患者端（面向普通患者 / 家属的极简对话层）
    后端完全复用现有一套：POST /api/chat  ·  POST /api/reset  ·  GET /api/health
    ✅ 不采集身份 · 不做诊断 · 查不到就说未查到 · 每条结论可点回来源
    ============================================================ */
@@ -264,7 +286,7 @@ const md  = (s) => esc(s).replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
 
 /* ---------- 医护小助手头像（内联 SVG：白大褂 + 护士帽，亲切但不幼稚） ---------- */
 const AVATAR = `
-<svg viewBox="0 0 96 96" width="100%" height="100%" role="img" aria-label="就医小助手">
+<svg viewBox="0 0 96 96" width="100%" height="100%" role="img" aria-label="就诊小助手">
  <defs>
   <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
    <stop offset="0" stop-color="#eaf5ff"/><stop offset="1" stop-color="#cfe6fb"/>
@@ -300,18 +322,25 @@ const AVATAR = `
  <!-- 帽徽：小红十字 -->
  <rect x="46" y="21.2" width="4" height="1.9" rx=".5" fill="#d9534f"/>
  <rect x="47.05" y="20.1" width="1.9" height="4.1" rx=".5" fill="#d9534f"/>
- <!-- 眉 -->
- <path d="M37.4 34.9 Q40.6 33.3 43.7 34.7" fill="none" stroke="#6d573f" stroke-width="1.5" stroke-linecap="round"/>
- <path d="M52.3 34.7 Q55.4 33.3 58.6 34.9" fill="none" stroke="#6d573f" stroke-width="1.5" stroke-linecap="round"/>
- <!-- 眼（含笑，专业不幼稚） -->
- <path d="M37.9 42.1 Q40.7 40.3 43.5 42.1" fill="none" stroke="#3a332a" stroke-width="1.85" stroke-linecap="round"/>
- <path d="M52.5 42.1 Q55.3 40.3 58.1 42.1" fill="none" stroke="#3a332a" stroke-width="1.85" stroke-linecap="round"/>
- <circle cx="40.7" cy="43.9" r=".85" fill="#3a332a" opacity=".55"/>
- <circle cx="55.3" cy="43.9" r=".85" fill="#3a332a" opacity=".55"/>
- <!-- 腮红 + 微笑 -->
- <ellipse cx="35.6" cy="48.2" rx="2.9" ry="1.8" fill="#eda57f" opacity=".42"/>
- <ellipse cx="60.4" cy="48.2" rx="2.9" ry="1.8" fill="#eda57f" opacity=".42"/>
- <path d="M42.4 49.4 Q48 54.2 53.6 49.4" fill="none" stroke="#c07845" stroke-width="2.1" stroke-linecap="round"/>
+ <!-- 眉（微微上扬，显精神） -->
+ <path d="M36.4 33.4 Q40.2 31.4 44.0 33.2" fill="none" stroke="#6d573f" stroke-width="1.6" stroke-linecap="round"/>
+ <path d="M52.0 33.2 Q55.8 31.4 59.6 33.4" fill="none" stroke="#6d573f" stroke-width="1.6" stroke-linecap="round"/>
+ <!-- 眼（大眼 + 高光：有神、亲切，不呆） -->
+ <ellipse cx="40.6" cy="42.0" rx="3.6" ry="4.2" fill="#ffffff"/>
+ <ellipse cx="55.4" cy="42.0" rx="3.6" ry="4.2" fill="#ffffff"/>
+ <circle cx="41.0" cy="42.4" r="2.6" fill="#3b3128"/>
+ <circle cx="55.0" cy="42.4" r="2.6" fill="#3b3128"/>
+ <circle cx="39.9" cy="40.9" r="1.15" fill="#ffffff"/>
+ <circle cx="53.9" cy="40.9" r="1.15" fill="#ffffff"/>
+ <circle cx="42.2" cy="44.1" r=".62" fill="#ffffff" opacity=".8"/>
+ <circle cx="56.2" cy="44.1" r=".62" fill="#ffffff" opacity=".8"/>
+ <!-- 上眼睑（让眼睛更精神） -->
+ <path d="M36.9 39.7 Q40.6 37.4 44.3 39.7" fill="none" stroke="#3b3128" stroke-width="1.25" stroke-linecap="round"/>
+ <path d="M51.7 39.7 Q55.4 37.4 59.1 39.7" fill="none" stroke="#3b3128" stroke-width="1.25" stroke-linecap="round"/>
+ <!-- 腮红 + 温和微笑（弧度比原来更明显） -->
+ <ellipse cx="35.2" cy="47.9" rx="3.2" ry="2.0" fill="#eda57f" opacity=".36"/>
+ <ellipse cx="60.8" cy="47.9" rx="3.2" ry="2.0" fill="#eda57f" opacity=".36"/>
+ <path d="M41.8 48.8 Q48 54.8 54.2 48.8" fill="none" stroke="#c07845" stroke-width="2.35" stroke-linecap="round"/>
 </svg>`;
 $('avatarBig').innerHTML = AVATAR;
 $('avatarSmall').innerHTML = AVATAR;
@@ -334,13 +363,13 @@ function clearCtx() { CTX = null; try { sessionStorage.removeItem(CTX_KEY); } ca
    实测通过：「<城市>有哪些医院有<科室/资源>」「<医院>怎么挂号」「<医院>互联网医院怎么挂号」。 */
 const SUG = {
   '': [
-    ['北京协和医院怎么挂号？', '北京有哪些医院有胸痛中心？', '北京有哪些医院有儿科，包括民营医院？', '北京有哪些医院设有卒中中心？', '北京有抗蛇毒血清的医院？', '北京天坛医院怎么挂号？', '北京大学首钢医院地址和官方预约入口？', '北京有哪些医院有发热门诊？'],
+    '北京协和医院怎么挂号？', '北京有哪些医院有胸痛中心？', '北京有哪些医院有儿科，包括民营医院？', '北京有哪些医院设有卒中中心？', '北京有抗蛇毒血清的医院？', '北京天坛医院怎么挂号？', '北京大学首钢医院地址和官方预约入口？', '北京有哪些医院有发热门诊？',
   ],
   '门诊指南': [
-    ['北京协和医院怎么挂号？', '北京天坛医院怎么挂号？', '北京大学首钢医院地址和官方预约入口？', '北京有哪些医院有发热门诊？', '北京中医医院怎么挂号？', '北京有哪些医院有儿科，包括民营医院？'],
+    '北京协和医院怎么挂号？', '北京天坛医院怎么挂号？', '北京大学首钢医院地址和官方预约入口？', '北京有哪些医院有发热门诊？', '北京中医医院怎么挂号？', '北京有哪些医院有儿科，包括民营医院？',
   ],
   '互联网医院': [
-    ['北京协和医院互联网医院怎么挂号？', '北京天坛医院互联网医院怎么挂号？', '北京大学第三医院互联网医院怎么挂号？', '北京友谊医院互联网医院怎么挂号？', '北京朝阳医院互联网医院怎么挂号？', '北京医院互联网医院怎么挂号？'],
+    '北京协和医院互联网医院怎么挂号？', '北京天坛医院互联网医院怎么挂号？', '北京大学第三医院互联网医院怎么挂号？', '北京友谊医院互联网医院怎么挂号？', '北京朝阳医院互联网医院怎么挂号？', '北京医院互联网医院怎么挂号？',
   ],
 };
 let DOMAIN = '';       // '' | '门诊指南' | '互联网医院'
@@ -566,28 +595,57 @@ document.querySelectorAll('[data-close]').forEach(el => {
 });
 document.querySelectorAll('.mask').forEach(m => { m.onclick = e => { if (e.target === m) m.classList.remove('on'); }; });
 
-/* ---------- 语音输入（浏览器不支持时优雅降级：按钮隐藏） ---------- */
+/* ---------- 语音输入 ----------
+   现实约束（如实告知，不装作能用）：
+   微信内置浏览器（UA 含 MicroMessenger）**不向网页开放语音识别**，Web Speech API 直接报
+   service-not-allowed —— 这是微信的限制，**任何网页在微信里都一样**，不是本页的问题。
+   可行路径：① 用外置浏览器打开本页（**Edge** 走微软端点、国内可用；Chrome 的语音服务国内不通）
+            ② 服务端 ASR（待接入，见 04_过程记录/界面重构说明-患者版.md §待办）
+   ⇒ 因此本按钮：能用的浏览器里**真的能识别**；不能用时给出**可操作的引导**，而不是只说"改用打字"。 */
 (function voice() {
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   const mic = $('mic');
-  if (!SR) { mic.style.display = 'none'; return; }
-  const rec = new SR();
-  rec.lang = 'zh-CN'; rec.interimResults = true; rec.continuous = false;
-  let on = false;
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const ua = navigator.userAgent || '';
+  const inWx = /MicroMessenger/i.test(ua);
+  let on = false, rec = null;
+
+  function guide(reason) {
+    let msg;
+    if (inWx) {
+      msg = '【怎么用语音】\n微信里不能做网页语音识别（这是微信的限制，任何网页都一样）。\n\n请点右上角「⋯」→「在浏览器打开」，用 Edge 打开这个页面，再点左边的语音按钮 ✱ 就能直接说话了。';
+    } else if (!SR) {
+      msg = '【怎么用语音】\n当前浏览器不支持语音识别。\n\n请用 Edge 打开本页（Edge 的语音服务在国内可用），再点语音按钮即可说话。';
+    } else if (reason === 'not-allowed' || reason === 'service-not-allowed') {
+      msg = '【怎么用语音】\n浏览器没有拿到麦克风权限，或语音服务不可用。\n\n① 请在地址栏/弹窗里允许本页使用麦克风；\n② 若仍不行，请改用 Edge 打开本页。';
+    } else if (reason === 'network') {
+      msg = '【怎么用语音】\n语音服务连不上（Chrome 用的是境外语音服务，国内访问不通）。\n\n请改用 Edge 打开本页再试。';
+    } else {
+      msg = '没听清，请再说一次；也可以直接打字提问。';
+    }
+    alert(msg);
+  }
+
   mic.onclick = () => {
-    if (on) { rec.stop(); return; }
-    try { rec.start(); } catch (e) { tip('无法启动语音输入，请改用打字', 'err'); }
+    if (on && rec) { try { rec.stop(); } catch (e) {} return; }
+    if (inWx) return guide('wx');
+    if (!SR) return guide('noSR');
+    try {
+      rec = new SR();
+      rec.lang = 'zh-CN'; rec.interimResults = true; rec.continuous = false; rec.maxAlternatives = 1;
+      rec.onstart = () => { on = true; mic.classList.add('on'); tip('正在听您说话…说完再点一下这个按钮'); };
+      rec.onend = () => { on = false; mic.classList.remove('on'); tip(''); };
+      rec.onerror = (e) => { on = false; mic.classList.remove('on'); tip(''); guide(e && e.error); };
+      rec.onresult = (e) => {
+        let s = '';
+        for (let i = e.resultIndex; i < e.results.length; i++) s += e.results[i][0].transcript;
+        $('q').value = s;
+        $('q').style.height = 'auto'; $('q').style.height = Math.min(96, $('q').scrollHeight) + 'px';
+      };
+      rec.start();
+    } catch (e) { guide('start-fail'); }
   };
-  rec.onstart = () => { on = true; mic.classList.add('on'); tip('正在听…说完再点一下麦克风'); };
-  rec.onend   = () => { on = false; mic.classList.remove('on'); tip(''); };
-  rec.onerror = (e) => { on = false; mic.classList.remove('on'); tip('语音识别失败（' + (e.error || '未知') + '），可改用打字', 'err'); };
-  rec.onresult = (e) => {
-    let s = '';
-    for (let i = e.resultIndex; i < e.results.length; i++) s += e.results[i][0].transcript;
-    $('q').value = s;
-    $('q').style.height = 'auto'; $('q').style.height = Math.min(96, $('q').scrollHeight) + 'px';
-    if (e.results[e.results.length - 1].isFinal) { rec.stop(); }
-  };
+  // 微信里把按钮标成"点一下看怎么用"，避免被当成坏按钮
+  if (inWx) { mic.title = '微信内不支持语音，点一下看怎么用'; mic.style.opacity = '.62'; }
 })();
 
 /* ---------- 启动：探测检索模式，无密钥时如实提示（不冒充实时结果） ---------- */

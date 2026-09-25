@@ -51,7 +51,7 @@ export async function verifyDeploy(base = DEFAULT_BASE, opts = {}) {
   say(`\n===== 部署后自检 =====\nBASE = ${B}${local ? '（本地模式：跳过 CDN 传播重试）' : ''}\n`)
 
   // ---- ① 首页 = 患者版（v2 改版：`/` 指向 patient.html）----（CDN 传播需要时间 → 重试）
-  const HOME_MARK = 'AI 就医助手'
+  const HOME_MARK = 'AI 就诊助手'
   let home = null
   let homeOk = false
   let lastAge = ''
