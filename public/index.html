@@ -38,6 +38,10 @@
   .btn-main{background:var(--b600);color:#fff;font-weight:600;min-width:84px}
   .btn-main:hover:not(:disabled){background:#356fa9}
   .btn-main:disabled{opacity:.55;cursor:default}
+  /* 语音按钮：按住说话（与患者页同一交互） */
+  .micbtn{background:#f1f7fd;border:1px solid var(--line);color:var(--b600);min-width:44px;
+    display:flex;align-items:center;justify-content:center;user-select:none;-webkit-user-select:none}
+  .micbtn.on{background:var(--b600);color:#fff;border-color:var(--b600)}
   /* 重置：小按钮，颜色只比周围深一点点 */
   .btn-reset{background:transparent;border:1px solid #c9dcee;color:#4a6d8f;
     font-size:11.5px;padding:4px 10px;border-radius:999px}
@@ -159,6 +163,9 @@
 
   <div class="card">
     <div class="row-in">
+      <button class="micbtn" id="mic" title="按住说话，松手识别" aria-label="语音输入">
+        <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><g stroke="currentColor" stroke-width="2.1" stroke-linecap="round" fill="none"><path d="M4 10.5v3"/><path d="M8 7.5v9"/><path d="M12 5.2v13.6"/><path d="M16 7.5v9"/><path d="M20 10.5v3"/></g></svg>
+      </button>
       <textarea id="q" placeholder="例如：北京有哪些医院设有卒中中心？（回车+Ctrl 发送）"></textarea>
       <button class="btn-main" id="send">查询</button>
     </div>
@@ -166,6 +173,7 @@
       <div class="chips" id="chips"></div>
       <button class="btn-reset" id="reset" title="开启一个全新会话（与旧会话相互隔离）">重置会话</button>
     </div>
+    <div id="asked" style="display:none;margin-top:8px"></div>
     <div class="status" id="status"></div>
   </div>
 
@@ -236,12 +244,12 @@ const TIER_SHORT = { A: 'A级·已核实', B: 'B级·官网', C: 'C级·待核�
 const TIER_CLASS = { A: 'bA', B: 'bB', C: 'bC', D: 'bC' };
 const ST_TEXT = {
   ok: '✅ 含权威来源', partial: '⚠️ 仅非权威来源', need_clarify: '❓ 需补充条件',
-  no_result: '⚠️ 未查到（≠没有）', refused_medical: '🚫 诊疗类已拒答', emergency: '🚨 紧急提示',
-  refused_out_of_scope: '🚫 越界已拒答', empty: '请输入内容', too_long: '输入过长',
+  no_result: '⚠️ 未查到（≠没有）', refused_medical: '🌿 诊疗类·请到院咨询（已附指引）', emergency: '🚨 紧急提示',
+  refused_out_of_scope: '🌿 越界请求·已婉答', empty: '请输入内容', too_long: '输入过长',
   search_failed: '⚠️ 检索异常', error: '⚠️ 系统异常',
   out_of_scope_region: '🗺 该地区暂未纳入演示范围', need_dept: '❓ 需补充科室',
-  refused_sensitive: '🚫 敏感请求已拒答', refused_injection: '🚫 指令注入已忽略',
-  out_of_scope_general: '🚫 不属于服务范围', rate_limited: '⏳ 请求过于频繁',
+  refused_sensitive: '🔒 敏感请求·已婉答', refused_injection: '🚫 指令注入已忽略',
+  out_of_scope_general: '🌿 不属于服务范围', rate_limited: '⏳ 请求过于频繁',
   demo_no_fixture: '📦 演示模式·无内置样例',
 };
 
@@ -258,7 +266,9 @@ function renderSources(list) {
     return '<div class="src">' +
       '<div class="t"><span class="badge ' + (TIER_CLASS[tier] || 'bC') + '">' + esc(TIER_SHORT[tier] || tier) + '</span>' + esc(s.title) + '</div>' +
       '<div class="m">来源：' + esc(s.site || '') + ' ｜ <a href="' + esc(s.url) + '" target="_blank" rel="noopener noreferrer">打开原文</a> ｜ ' + esc(upd) +
-      ' ｜ 查询时间：' + esc(String(s.queriedAt || '').slice(0, 16)) + ' ｜ 通道：' + esc((s.channels || []).join('+')) + '</div>' +
+      ' ｜ 查询时间：' + esc(String(s.queriedAt || '').slice(0, 16)) +
+      /* 通道名（bocha/tavily）是技术细节：公众/导医视角不显示，仅管理视角保留（甲方 00:48 反馈） */
+      (VIEW === 'admin' ? ' ｜ 通道：' + esc((s.channels || []).join('+')) : '') + '</div>' +
       '</div>';
   }).join('');
 }
@@ -369,7 +379,9 @@ function renderResult() {
     return FILTER === 'all' ? true : FILTER === 'A' ? s.tier === 'A' : (s.tier === 'A' || s.tier === 'B');
   });
   html += '<details><summary>展开完整依据与 ' + shown.length + ' 条来源' + (FILTER === 'all' ? '' : '（已按筛选）') + '</summary>';
-  html += '<div class="full">' + md(data.answer || '') + '</div>';
+  /* 回答正文里的"｜ 检索通道：bocha"同样是技术细节：公众/导医视角在展示层剥掉（管理视角保留，作为双通道证据） */
+  const ansForView = VIEW === 'admin' ? String(data.answer || '') : String(data.answer || '').replace(/ ｜ 检索通道：[A-Za-z+]+/g, '');
+  html += '<div class="full">' + md(ansForView) + '</div>';
   html += '<div class="srcs">' + renderSources(shown) + '</div>';
   html += '</details>';
 
@@ -465,11 +477,29 @@ document.getElementById('views').addEventListener('click', async function (e) {
   if (CURR) renderResult();
 });
 
+/* 本次会话问过的问题（回显历史：点了胶囊/查过之后留下痕迹，用户不会再以为"没点上"） */
+const ASKED = [];
+function renderAsked() {
+  const el = $('asked');
+  if (!ASKED.length) { el.style.display = 'none'; return; }
+  el.style.display = '';
+  el.innerHTML = '<span style="font-size:11.5px;color:#6b8299">本次问过：</span>' +
+    ASKED.map((t, i) => '<span class="chip" data-ask="' + i + '">' + esc(t) + '</span>').join('');
+}
+$('asked').addEventListener('click', (e) => {
+  const i = e.target.getAttribute && e.target.getAttribute('data-ask');
+  if (i == null) return;
+  $('q').value = ASKED[Number(i)];
+  send();
+});
+
 async function send() {
   const message = $('q').value.trim();
   if (!message) { setStatus('请输入要查询的内容', 'err'); return; }
   $('send').disabled = true;
-  setStatus('检索中…（正在调用联网搜索并核验来源）', 'busy');
+  /* 防连点：检索期间胶囊置灰（甲方实测"点了3次以为没反应"） */
+  $('chips').style.pointerEvents = 'none'; $('chips').style.opacity = '.55';
+  setStatus('正在为您检索「' + message + '」…（联网搜索并核验来源，约需几秒）', 'busy');
   try {
     const r = await fetch('/api/chat', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -485,11 +515,24 @@ async function send() {
     $('result').innerHTML = '';
     CURR = data; CMP.clear(); FILTER = 'all';
     renderResult();
-    setStatus('');
+    /* 问答回显：明确告诉用户"你问的收到了、结果在哪、下一步怎么追问"（甲方实测"检索完没有信息，界面好像没反应"） */
+    if (!ASKED.includes(message)) { ASKED.push(message); renderAsked(); }
+    const hos = (data.hospitals || []).length, ns = (data.sources || []).length;
+    let ack;
+    if (data.status === 'ok' || data.status === 'partial') ack = '已为您查到 ' + hos + ' 家医院、' + ns + ' 条来源，结果在下方；可以继续追问，例如「第二家的地址和官方预约入口呢」。';
+    else if (data.status === 'refused_medical') ack = '这个问题属于诊疗建议，我帮不上——下方给了您就医指引。';
+    else if (data.status === 'emergency') ack = '请先看下方的紧急提示。';
+    else if (data.status === 'no_result') ack = '这次没有查到可核实的信息，下方给了官方核实渠道建议。';
+    else if (data.status === 'search_failed') ack = '检索服务临时异常，请稍后重试。';
+    else ack = '请根据下方提示补充或调整问法。';
+    setStatus('您问：「' + message + '」—— ' + ack);
+    /* 结果区自动滚进视野：不让用户自己找"结果更到哪了" */
+    $('outCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
   } catch (e) {
     setStatus('请求失败：' + String(e && e.message ? e.message : e), 'err');
   } finally {
     $('send').disabled = false;
+    $('chips').style.pointerEvents = ''; $('chips').style.opacity = '';
     $('q').focus();
   }
 }
@@ -514,6 +557,42 @@ async function reset() {
 $('send').onclick = send;
 $('reset').onclick = reset;
 $('q').addEventListener('keydown', (e) => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') send(); });
+
+/* ---------- 语音输入：按住说话、松手识别（与患者页同一交互；不可用走状态条引导，不弹 alert） ---------- */
+(function voice() {
+  const mic = $('mic');
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let on = false, rec = null, dog = null;
+  function guide(reason) {
+    if (!SR) setStatus('当前浏览器不支持语音输入，建议用 Edge 打开本页，或直接打字', 'err');
+    else if (reason === 'not-allowed' || reason === 'service-not-allowed') setStatus('请先允许本页使用麦克风；仍不行可换 Edge 或直接打字', 'err');
+    else if (reason === 'network') setStatus('语音服务连不上（Chrome 走境外语音服务，国内不通）——建议用 Edge 打开，或直接打字', 'err');
+    else setStatus('没听清，请按住再说一次；也可以直接打字', 'err');
+  }
+  const VTIP = '正在听您说话…说完松手';
+  function stopRec() { if (dog) { clearTimeout(dog); dog = null; } if (rec) { try { rec.stop(); } catch (e) {} } }
+  function startRec() {
+    if (on) return;
+    if (!SR) return guide('noSR');
+    try {
+      rec = new SR();
+      rec.lang = 'zh-CN'; rec.interimResults = true; rec.continuous = false; rec.maxAlternatives = 1;
+      rec.onstart = () => { on = true; mic.classList.add('on'); setStatus(VTIP, 'busy'); dog = setTimeout(() => { if (on) stopRec(); }, 12000); };
+      rec.onend = () => { on = false; mic.classList.remove('on'); if (dog) { clearTimeout(dog); dog = null; } if ($('status').textContent === VTIP) setStatus(''); };
+      rec.onerror = (e) => { on = false; mic.classList.remove('on'); if (dog) { clearTimeout(dog); dog = null; } setStatus(''); guide(e && e.error); };
+      rec.onresult = (e) => {
+        let s = '', fin = false;
+        for (let i = e.resultIndex; i < e.results.length; i++) { s += e.results[i][0].transcript; if (e.results[i].isFinal) fin = true; }
+        $('q').value = s;
+        if (fin) { stopRec(); setStatus('已识别，可修改后点「查询」'); }
+      };
+      rec.start();
+    } catch (e) { guide('start-fail'); }
+  }
+  mic.style.touchAction = 'none';
+  mic.addEventListener('pointerdown', (e) => { e.preventDefault(); startRec(); });
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach((ev) => mic.addEventListener(ev, () => { if (on) stopRec(); }));
+})();
 
 /** 启动时探测检索模式：无密钥 → 顶部显著标注"演示模式（内置样例数据，非实时结果）" */
 function showDemoBanner(text) {

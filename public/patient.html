@@ -311,64 +311,8 @@ const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const md  = (s) => esc(s).replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
 
-/* ---------- 医护小助手头像（内联 SVG：白大褂 + 护士帽，亲切但不幼稚） ---------- */
-const AVATAR = `
-<svg viewBox="0 0 96 96" width="100%" height="100%" role="img" aria-label="就诊小助手">
- <defs>
-  <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-   <stop offset="0" stop-color="#eaf5ff"/><stop offset="1" stop-color="#cfe6fb"/>
-  </linearGradient>
-  <linearGradient id="coat" x1="0" y1="0" x2="0" y2="1">
-   <stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#eef5fc"/>
-  </linearGradient>
- </defs>
- <circle cx="48" cy="48" r="48" fill="url(#bg)"/>
- <!-- 身体：白大褂 -->
- <path d="M20 96 C20 76 30 66.5 40 64.5 L48 79 L56 64.5 C66 66.5 76 76 76 96 Z" fill="url(#coat)"/>
- <!-- 内搭（浅蓝） -->
- <path d="M42.5 64 L48 79 L53.5 64 L51 62 L45 62 Z" fill="#bcd9f2"/>
- <!-- 领子 -->
- <path d="M40 64.5 L48 79 L45 62 Z" fill="#ffffff" stroke="#dbe9f7" stroke-width="1"/>
- <path d="M56 64.5 L48 79 L51 62 Z" fill="#ffffff" stroke="#dbe9f7" stroke-width="1"/>
- <!-- 颈 -->
- <rect x="43.5" y="54" width="9" height="11" rx="3.2" fill="#f0c6a0"/>
- <rect x="43.5" y="54" width="9" height="4.6" rx="2.2" fill="#e0ae86"/>
- <!-- 脸 -->
- <circle cx="48" cy="39.5" r="17" fill="#f7d3af"/>
- <!-- 头发（低马尾，专业感） -->
- <path d="M30.8 38.5 C30.8 27.5 38 21.5 48 21.5 C58 21.5 65.2 27.5 65.2 38.5
-          C65.2 41 63.6 41.4 63.1 39.8 C61.4 33.6 57 29.6 48 29.6
-          C39 29.6 34.6 33.6 32.9 39.8 C32.4 41.4 30.8 41 30.8 38.5 Z" fill="#4b3a2b"/>
- <path d="M64 36 C70 38.5 70.6 47 67.6 52.5 C66.6 54.4 64.6 53.8 65 52
-          C66.4 45.6 65.6 40 62.6 38 Z" fill="#4b3a2b"/>
- <!-- 护士帽 -->
- <path d="M35.5 27.6 C35.5 21.6 41 18 48 18 C55 18 60.5 21.6 60.5 27.6
-          C60.5 30 58.6 30.6 56.8 30.2 C54 29.5 51 29.2 48 29.2
-          C45 29.2 42 29.5 39.2 30.2 C37.4 30.6 35.5 30 35.5 27.6 Z" fill="#ffffff" stroke="#dbe9f7" stroke-width="1.1"/>
- <rect x="36.6" y="28.4" width="22.8" height="3.1" rx="1.55" fill="#ffffff" stroke="#dbe9f7" stroke-width="1"/>
- <!-- 帽徽：小红十字 -->
- <rect x="46" y="21.2" width="4" height="1.9" rx=".5" fill="#d9534f"/>
- <rect x="47.05" y="20.1" width="1.9" height="4.1" rx=".5" fill="#d9534f"/>
- <!-- 眉（微微上扬，显精神） -->
- <path d="M36.4 33.4 Q40.2 31.4 44.0 33.2" fill="none" stroke="#6d573f" stroke-width="1.6" stroke-linecap="round"/>
- <path d="M52.0 33.2 Q55.8 31.4 59.6 33.4" fill="none" stroke="#6d573f" stroke-width="1.6" stroke-linecap="round"/>
- <!-- 眼（大眼 + 高光：有神、亲切，不呆） -->
- <ellipse cx="40.6" cy="42.0" rx="3.6" ry="4.2" fill="#ffffff"/>
- <ellipse cx="55.4" cy="42.0" rx="3.6" ry="4.2" fill="#ffffff"/>
- <circle cx="41.0" cy="42.4" r="2.6" fill="#3b3128"/>
- <circle cx="55.0" cy="42.4" r="2.6" fill="#3b3128"/>
- <circle cx="39.9" cy="40.9" r="1.15" fill="#ffffff"/>
- <circle cx="53.9" cy="40.9" r="1.15" fill="#ffffff"/>
- <circle cx="42.2" cy="44.1" r=".62" fill="#ffffff" opacity=".8"/>
- <circle cx="56.2" cy="44.1" r=".62" fill="#ffffff" opacity=".8"/>
- <!-- 上眼睑（让眼睛更精神） -->
- <path d="M36.9 39.7 Q40.6 37.4 44.3 39.7" fill="none" stroke="#3b3128" stroke-width="1.25" stroke-linecap="round"/>
- <path d="M51.7 39.7 Q55.4 37.4 59.1 39.7" fill="none" stroke="#3b3128" stroke-width="1.25" stroke-linecap="round"/>
- <!-- 腮红 + 温和微笑（弧度比原来更明显） -->
- <ellipse cx="35.2" cy="47.9" rx="3.2" ry="2.0" fill="#eda57f" opacity=".36"/>
- <ellipse cx="60.8" cy="47.9" rx="3.2" ry="2.0" fill="#eda57f" opacity=".36"/>
- <path d="M41.8 48.8 Q48 54.8 54.2 48.8" fill="none" stroke="#c07845" stroke-width="2.35" stroke-linecap="round"/>
-</svg>`;
+/* ---------- 医护小助手头像（AI 生成的亲切专业女护士形象：卡通插画风、非动漫；public/avatar.png） ---------- */
+const AVATAR = '<img src="/avatar.png" alt="就诊小助手" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;display:block">';
 $('avatarBig').innerHTML = AVATAR;
 $('avatarSmall').innerHTML = AVATAR;
 
@@ -487,12 +431,12 @@ function cleanAnswer(s) {
 }
 const ST = {
   ok: '✅ 已找到', partial: '⚠️ 仅非权威来源', need_clarify: '❓ 需要补充条件',
-  no_result: '⚠️ 未查到（≠ 没有）', refused_medical: '🚫 诊疗问题已婉拒', emergency: '🚨 紧急提示',
-  refused_out_of_scope: '🚫 超出服务范围', empty: '请输入内容', too_long: '输入过长',
+  no_result: '⚠️ 未查到（≠ 没有）', refused_medical: '🌿 诊疗问题·请到院咨询（已附指引）', emergency: '🚨 紧急提示',
+  refused_out_of_scope: '🌿 超出服务范围', empty: '请输入内容', too_long: '输入过长',
   search_failed: '⚠️ 检索异常，请稍后再试', error: '⚠️ 系统繁忙，请稍后再试',
   out_of_scope_region: '🗺 该地区暂未纳入演示范围', need_dept: '❓ 需要补充科室',
-  refused_sensitive: '🚫 该请求无法处理', refused_injection: '🚫 该请求无法处理',
-  out_of_scope_general: '🚫 不属于服务范围', rate_limited: '⏳ 问得太快了，稍等一下',
+  refused_sensitive: '🔒 该请求无法处理', refused_injection: '🔒 该请求无法处理',
+  out_of_scope_general: '🌿 不属于服务范围', rate_limited: '⏳ 问得太快了，稍等一下',
   demo_no_fixture: '📦 演示模式·无内置样例',
 };
 
@@ -722,49 +666,39 @@ document.querySelectorAll('[data-close]').forEach(el => {
 });
 document.querySelectorAll('.mask').forEach(m => { m.onclick = e => { if (e.target === m) m.classList.remove('on'); }; });
 
-/* ---------- 语音输入 ----------
+/* ---------- 语音输入：按住说话、松手识别 ----------
    现实约束（如实告知，不装作能用）：
-   微信内置浏览器（UA 含 MicroMessenger）**不向网页开放语音识别**，Web Speech API 直接报
-   service-not-allowed —— 这是微信的限制，**任何网页在微信里都一样**，不是本页的问题。
-   可行路径：① 用外置浏览器打开本页（**Edge** 走微软端点、国内可用；Chrome 的语音服务国内不通）
-            ② 服务端 ASR（待接入，见 04_过程记录/界面重构说明-患者版.md §待办）
-   ⇒ 因此本按钮：能用的浏览器里**真的能识别**；不能用时给出**可操作的引导**，而不是只说"改用打字"。 */
+   微信内置浏览器（UA 含 MicroMessenger）**不向网页开放语音识别**；Chrome 的语音服务走境外端点、国内不通；
+   **Edge** 走微软端点、国内可用。
+   交互（甲方 00:48 反馈）：① 长按按钮说话、松手即识别，不应"讲完还要再点一下"；
+   ② 不可用时用输入框下方提示条温和引导，**不用 alert 弹窗**；③ 能用的浏览器里真的能识别。 */
 (function voice() {
   const mic = $('mic');
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   const ua = navigator.userAgent || '';
   const inWx = /MicroMessenger/i.test(ua);
-  let on = false, rec = null;
+  let on = false, rec = null, dog = null;
 
   function guide(reason) {
-    let msg;
-    if (inWx) {
-      msg = '【怎么用语音】\n微信里不能做网页语音识别（这是微信的限制，任何网页都一样）。\n\n请点右上角「⋯」→「在浏览器打开」，用 Edge 打开这个页面，再点左边的语音按钮 ✱ 就能直接说话了。';
-    } else if (!SR) {
-      msg = '【怎么用语音】\n当前浏览器不支持语音识别。\n\n请用 Edge 打开本页（Edge 的语音服务在国内可用），再点语音按钮即可说话。';
-    } else if (reason === 'not-allowed' || reason === 'service-not-allowed') {
-      msg = '【怎么用语音】\n浏览器没有拿到麦克风权限，或语音服务不可用。\n\n① 请在地址栏/弹窗里允许本页使用麦克风；\n② 若仍不行，请改用 Edge 打开本页。';
-    } else if (reason === 'network') {
-      msg = '【怎么用语音】\n语音服务连不上（Chrome 用的是境外语音服务，国内访问不通）。\n\n请改用 Edge 打开本页再试。';
-    } else {
-      msg = '没听清，请再说一次；也可以直接打字提问。';
-    }
-    alert(msg);
+    if (inWx) tip('微信里不能语音：点右上角「⋯」→「在浏览器打开」，再按住左侧按钮说话', 'err');
+    else if (!SR) tip('当前浏览器不支持语音输入，建议用 Edge 打开本页，或直接打字', 'err');
+    else if (reason === 'not-allowed' || reason === 'service-not-allowed') tip('请先允许本页使用麦克风（地址栏左侧图标）；仍不行可换 Edge 或直接打字', 'err');
+    else if (reason === 'network') tip('语音服务连不上（Chrome 走的是境外语音服务，国内不通）——建议用 Edge 打开本页，或直接打字', 'err');
+    else tip('没听清，请按住再说一次；也可以直接打字', 'err');
   }
 
-  const VTIP = '正在听您说话…说完再点一下这个按钮';
-  let dog = null;
+  const VTIP = '正在听您说话…说完松手';
   function stopRec() {
     if (dog) { clearTimeout(dog); dog = null; }
     if (rec) { try { rec.stop(); } catch (e) {} }
   }
-  /* 暴露给 send()：发出问题前先停语音，否则识别回调会把已发送的话又写回输入框（iPhone 实测"发送后输入框还在"） */
+  /* 暴露给 send()：发出问题前先停语音，否则识别回调会把已发送的话又写回输入框 */
   window.__voiceStop = stopRec;
   /* 切后台 / 锁屏立即停：iOS Safari 端点判定不可靠，不停麦克风会一直挂 */
   document.addEventListener('visibilitychange', () => { if (document.hidden && on) stopRec(); });
 
-  mic.onclick = () => {
-    if (on && rec) { stopRec(); return; }
+  function startRec() {
+    if (on) return;
     if (inWx) return guide('wx');
     if (!SR) return guide('noSR');
     try {
@@ -777,7 +711,7 @@ document.querySelectorAll('.mask').forEach(m => { m.onclick = e => { if (e.targe
       rec.onend = () => {
         on = false; mic.classList.remove('on');
         if (dog) { clearTimeout(dog); dog = null; }
-        if ($('tip').textContent === VTIP) tip('');   /* 只清语音自己的提示，不清"正在检索"等别的提示 */
+        if ($('tip').textContent === VTIP) tip('');   /* 只清语音自己的提示 */
       };
       rec.onerror = (e) => { on = false; mic.classList.remove('on'); if (dog) { clearTimeout(dog); dog = null; } tip(''); guide(e && e.error); };
       rec.onresult = (e) => {
@@ -788,14 +722,20 @@ document.querySelectorAll('.mask').forEach(m => { m.onclick = e => { if (e.targe
         }
         $('q').value = s;
         $('q').style.height = 'auto'; $('q').style.height = Math.min(96, $('q').scrollHeight) + 'px';
-        /* 拿到最终结果 = 说完了 → 立即自动关闭麦克风（修复"语音一旦打开就关不了"） */
+        /* 拿到最终结果 = 说完了 → 立即自动关闭麦克风 */
         if (fin) { stopRec(); tip('已识别，可修改后点发送'); }
       };
       rec.start();
     } catch (e) { guide('start-fail'); }
-  };
-  // 微信里把按钮标成"点一下看怎么用"，避免被当成坏按钮
-  if (inWx) { mic.title = '微信内不支持语音，点一下看怎么用'; mic.style.opacity = '.62'; }
+  }
+
+  /* 按住说话、松手结束：pointer 事件同时覆盖鼠标与触屏；pointercancel/leave 兜底防"卡住一直听" */
+  mic.style.touchAction = 'none';
+  mic.addEventListener('pointerdown', (e) => { e.preventDefault(); startRec(); });
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach((ev) =>
+    mic.addEventListener(ev, () => { if (on) stopRec(); }));
+  if (inWx) { mic.title = '微信内不支持语音，按住可看替代办法'; mic.style.opacity = '.62'; }
+  else mic.title = '按住说话，松手识别';
 })();
 
 /* ---------- 启动：探测检索模式，无密钥时如实提示（不冒充实时结果） ---------- */

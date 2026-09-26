@@ -149,7 +149,7 @@
 
   <div class="chat" id="chat">
     <div class="msg ai">
-      <div class="avatar">🏥</div>
+      <div class="avatar" style="padding:0;overflow:hidden"><img src="/avatar.png" alt="AI 医院助手" style="width:100%;height:100%;object-fit:cover;display:block"></div>
       <div class="bubble">
         <b>AI 医院助手</b>｜演示范围<b>北京</b><br>
         我会实时联网检索，每条结论都附来源与时间。<br>
@@ -218,8 +218,8 @@ const TIER_SHORT = { A: 'A级·已核实', B: 'B级·官网', C: 'C级·待核�
 const TIER_CLASS = { A: 'bA', B: 'bB', C: 'bC', D: 'bC' };
 const ST_TEXT = {
   ok: '✅ 含权威来源', partial: '⚠️ 仅非权威来源', need_clarify: '❓ 需补充条件',
-  no_result: '⚠️ 未查到（≠没有）', refused_medical: '🚫 诊疗类已拒答', emergency: '🚨 紧急提示',
-  refused_out_of_scope: '🚫 越界已拒答', empty: '请输入内容', too_long: '输入过长',
+  no_result: '⚠️ 未查到（≠没有）', refused_medical: '🌿 诊疗类·请到院咨询（已附指引）', emergency: '🚨 紧急提示',
+  refused_out_of_scope: '🌿 越界请求·已婉答', empty: '请输入内容', too_long: '输入过长',
   search_failed: '⚠️ 检索异常', error: '⚠️ 系统异常',
 };
 
@@ -231,7 +231,7 @@ function md(s) { return esc(s).replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>'
 function addMsg(role, html) {
   const w = document.createElement('div');
   w.className = 'msg ' + role;
-  if (role === 'ai') { const a = document.createElement('div'); a.className = 'avatar'; a.textContent = '🏥'; w.appendChild(a); }
+  if (role === 'ai') { const a = document.createElement('div'); a.className = 'avatar'; a.style.padding = '0'; a.style.overflow = 'hidden'; a.innerHTML = '<img src="/avatar.png" alt="" style="width:100%;height:100%;object-fit:cover;display:block">'; w.appendChild(a); }
   const b = document.createElement('div'); b.className = 'bubble'; b.innerHTML = html;
   w.appendChild(b); chat.appendChild(w); chat.scrollTop = chat.scrollHeight;
   return w;
