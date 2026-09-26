@@ -87,11 +87,13 @@ for (const [k, v] of Object.entries(wanted)) {
     method: 'POST',
     body: JSON.stringify([{ key: k, values: [{ value: v, context: 'all' }] }]),
   })
-  // 变量已存在时 POST 返回 422 → 转 PATCH 更新（明天换 key/加 key 必须走这里，否则新值推不上去）
+  // 变量已存在时 POST 返 422；PATCH 又被 "context can't be set to all" 拒（存量值带 scopes）——
+  // 实测唯一可靠路径 = DELETE 后重新 POST（2026-09-27 踩实）。
   if (r.status === 422) {
-    r = await api(`/accounts/${site.account_slug}/env/${encodeURIComponent(k)}?site_id=${site.id}`, {
-      method: 'PATCH',
-      body: JSON.stringify({ value: v, context: 'all' }),
+    await api(`/accounts/${site.account_slug}/env/${encodeURIComponent(k)}?site_id=${site.id}`, { method: 'DELETE' })
+    r = await api(`/accounts/${site.account_slug}/env?site_id=${site.id}`, {
+      method: 'POST',
+      body: JSON.stringify([{ key: k, values: [{ value: v, context: 'all' }] }]),
     })
   }
   console.log(`  ${r.ok ? '✅' : '⚠️'} ${k}  (HTTP ${r.status})`)
